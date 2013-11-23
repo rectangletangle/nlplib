@@ -47,7 +47,6 @@ def __demo__ () :
         print(html, end='\n\n')
 
 def __test__ (ut) :
-    from threading import active_count
     from time import sleep
 
     storage = set()
@@ -67,7 +66,6 @@ def __test__ (ut) :
     simultaneously([foo, bar, baz])
 
     ut.assert_equal(storage, {'foo', 'bar', 'baz'})
-    ut.assert_equal(active_count(), 1)
 
 if __name__ == '__main__' :
     from nlplib.general.unit_test import UnitTest

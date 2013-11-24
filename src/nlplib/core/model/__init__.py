@@ -42,7 +42,8 @@ class Document (Model) :
 
 @total_ordering
 class Seq (Model) :
-    ''' This represents a sequence of characters. The word and gram classes are built on top of this. '''
+    ''' This acts as a sequence of characters, similar to a string. The word and gram classes are built on top of
+        this. '''
 
     def __init__ (self, raw, prevalence=None, indexes=(), clean=None) :
         self.raw = raw
@@ -90,7 +91,7 @@ class Seq (Model) :
         return hash(self.clean)
 
 class Gram (Seq) :
-    ''' This class is for representing n-grams. '''
+    ''' This class is used for representing n-grams of word strings. '''
 
     def __init__ (self, raw, prevalence=None, indexes=()) :
         if isinstance(raw, str) :
@@ -127,13 +128,13 @@ class Gram (Seq) :
         return Gram(self.words + other)
 
 class Word (Seq) :
-    ''' This class is for representing words. Currently homographic words are not supported. '''
+    ''' This class is used for representing words. Currently homographic words are not supported. '''
 
     def __init__ (self, raw, prevalence=None, indexes=()) :
         super().__init__(raw=raw, prevalence=prevalence, indexes=indexes, clean=None)
 
 class Index (Model) :
-    ''' This class is for indexing the sequences (words or n-grams) in a document. '''
+    ''' This class is used for indexing sequences (words or n-grams) in a document. '''
 
     def __init__ (self, document, seq, first_token_index, last_token_index, first_character_index,
                   last_character_index, tokenization_algorithm=None) :
@@ -204,13 +205,12 @@ class IONode (Node) :
         self.seq_id = seq.id
 
 class SessionDependent (Base) :
-    ''' A base class for classes witch depend on a database session. '''
+    ''' A base class for classes which depend on a database session. '''
 
     def __init__ (self, session) :
         self.session = session
 
 try :
-    # The SQLAlchemy back-end is used as the default because it's the most feature rich.
     from nlplib.core.model.backend.sqlalchemy.access import Access
     from nlplib.core.model.backend.sqlalchemy.index import Indexer
     from nlplib.core.model.backend.sqlalchemy import Database

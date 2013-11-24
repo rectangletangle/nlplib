@@ -19,7 +19,7 @@ class Session (Base) :
 
 class Database (Base) :
     ''' This class represents a database. Generally you don't interface with the database directly too much, but
-        instead a database session object. '''
+        instead with a database session object. '''
 
     def __init__ (self, path=r'sqlite:///:memory:') :
         self.path = path

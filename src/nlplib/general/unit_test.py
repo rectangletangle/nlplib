@@ -55,7 +55,7 @@ def _import_everything_from (pkg) :
             yield module
 
 def test_everything (pkg, log='print', test_function_log='silent', log_non_implemented_tests=False,
-                     raise_not_implemented_error=False, test_function_name='__test__',) :
+                     raise_not_implemented_error=False, test_function_name='__test__') :
     ''' This calls all module level functions named <__test__> within a package, in order to expedite package wide unit
         testing. '''
 

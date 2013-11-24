@@ -32,7 +32,7 @@ def _make_document (url, soup) :
     raw = ''.join(_flatten(tag.find_all(text=True, recursive=True) for tag in soup.find_all('p')))
 
     return Document(raw,
-                    word_count=len(list(split(raw))), # Strange silent errors when the list function is removed.
+                    word_count=len(list(split(raw))), # todo : silent errors when the list function is removed.
                     title='wikipedia',
                     url=url,
                     created_on=datetime.now())

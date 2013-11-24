@@ -1,5 +1,6 @@
 ''' This module contains multiple handy functions for working with a concordance. '''
 
+# todo : change document, seq, index order for more natural sorting
 
 from nlplib.core.process.token import split
 from nlplib.core.model import Gram

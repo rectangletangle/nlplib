@@ -89,6 +89,7 @@ def _calculate_scores (weighted_functions, scores) :
 
 def score (weighted_functions, object, similar_objects,
            sort=lambda scores : sorted(scores, key=lambda score : (float(score), str(score.object)), reverse=True)) :
+    # todo : document
 
     scores = [Score(similar_object) for similar_object in similar_objects]
 

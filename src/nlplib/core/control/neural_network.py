@@ -1,3 +1,5 @@
+# todo : a lot
+# todo : make <Structure> not session dependent.
 
 from math import tanh
 

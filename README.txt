@@ -1,4 +1,3 @@
-
 The Natural language Processing Library (nlplib) is a library of tools for processing natural language using Python. It
 features tools for manipulating and extracting information from raw English language text, and then persisting that
 information within a database.
@@ -15,7 +14,7 @@ Dependencies :
     Beautiful Soup 4.1.2
 
 Installation :
-    Installation should be pretty much straight forward; it installs like pretty much every other Python package.
+    Installation should be straight forward; it installs like pretty much every other Python package.
 
     $ python3 setup.py install
 

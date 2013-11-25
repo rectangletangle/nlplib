@@ -4,7 +4,7 @@ from functools import total_ordering
 
 from nlplib.core.process import process
 from nlplib.core import Base
-from nlplib.general import pretty_truncate
+from nlplib.general import pretty_truncate, literal_representation
 
 __all__ = ['Model', 'Document', 'Seq', 'Gram', 'Word', 'Index', 'Link', 'Node', 'IONode', 'SessionDependent', 'Access',
            'Indexer', 'Database']
@@ -57,8 +57,7 @@ class Seq (Model) :
         self.indexes    = list(indexes)
 
     def __repr__ (self) :
-        # Sequence objects can be represented as literal Python.
-        return '{class_name}({string})'.format(class_name=self.__class__.__name__, string=repr(self.clean))
+        return literal_representation(self, self.clean) # Sequence objects can be represented as literal Python.
 
     def __str__ (self) :
         return self.clean

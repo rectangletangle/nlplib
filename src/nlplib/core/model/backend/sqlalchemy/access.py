@@ -41,7 +41,9 @@ class Access (abstract.Access) :
 
     def concordance (self, string) :
         session = self.session._sqlalchemy_session
-        return session.query(Document, Seq, Index).join(Index).join(Seq).filter_by(clean=process(string)).all()
+        concordance = session.query(Document, Seq, Index).join(Index).join(Seq).filter_by(clean=process(string)).all()
+
+        return [(document, index, seq) for document, seq, index in concordance]
 
     def indexes (self, document) :
         session = self.session._sqlalchemy_session

@@ -1,6 +1,5 @@
 ''' This module contains multiple handy functions for working with a concordance. '''
 
-# todo : change document, seq, index order for more natural sorting
 
 from nlplib.core.process.token import split
 from nlplib.core.model import Gram
@@ -32,14 +31,14 @@ def raw (concordance) :
     ''' This yields tuples that contain the raw string (unmodified whitespace and all) which the sequence object that
         had made the concordance, was representing. '''
 
-    for document, seq, index in concordance :
+    for document, index, seq in concordance :
         raw_string = str(document)[index.first_character:index.last_character+1]
 
-        yield (document, raw_string, index)
+        yield (document, index, raw_string)
 
 def gram_tuples (concordance, window=Window(), splitter=split) :
     already_split_documents = {}
-    for document, seq, index in concordance :
+    for document, index, seq in concordance :
         split_document = already_split_documents.get(document)
         if split_document is None :
             split_document = tuple(splitter(document))
@@ -53,9 +52,9 @@ def grams (*args, **kw) :
 
 def documents_containing (concordance) :
     documents = {}
-    for document, seq, index in concordance :
+    for document, index, seq in concordance :
         indexes_for_document = documents.setdefault(document, [])
-        indexes_for_document.append((seq, index))
+        indexes_for_document.append((index, seq))
 
     return documents
 
@@ -107,7 +106,7 @@ def __test__ (ut) :
 
         # Tests <raw>, note the differences in the white space.
         for stuff, correct_string in zip(raw(concordance), ['is a', 'is  a']) :
-            raw_string = stuff[1]
+            raw_string = stuff[2]
 
             ut.assert_equal(raw_string, correct_string)
 

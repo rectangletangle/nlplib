@@ -1,8 +1,10 @@
 
 
-__all__ = ['gram_tuples']
+__all__ = []
 
 def gram_tuples (tokens, min_gram=2, max_gram=None) :
+    # todo : Give a more descriptive name.
+
     amount_of_tokens = len(tokens)
 
     if max_gram is None :

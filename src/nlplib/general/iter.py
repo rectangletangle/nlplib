@@ -31,7 +31,7 @@ def chop (iterable, size) :
         try :
             chunk[size-1] # Easier to Ask for Forgiveness Than Permission, style length testing
         except IndexError :
-            pass
+            break
         else :
             yield chunk
 

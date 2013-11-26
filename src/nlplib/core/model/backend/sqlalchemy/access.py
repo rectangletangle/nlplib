@@ -1,5 +1,4 @@
 
-
 from nlplib.core.model import Document, Seq, Gram, Word, Index
 from nlplib.core.model.backend.abstract import access as abstract
 from nlplib.core.process import process
@@ -47,7 +46,7 @@ class Access (abstract.Access) :
 
     def indexes (self, document) :
         session = self.session._sqlalchemy_session
-        return [(seq, index) for index, seq
+        return [(seq, index) for index, seq # todo : change order to match concordance
                 in session.query(Index, Seq).filter(Index.document_id == document.id).join(Seq).all()]
 
     def matching (self, strings, cls=Seq, chunk_size=200) :

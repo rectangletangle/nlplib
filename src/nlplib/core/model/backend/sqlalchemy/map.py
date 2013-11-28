@@ -6,7 +6,7 @@ from sqlalchemy.orm import relationship, mapper, reconstructor
 from sqlalchemy.exc import ArgumentError
 from sqlalchemy import Table, Column, Integer, Float, String, DateTime, Text, ForeignKey, MetaData
 
-from nlplib.core.model import Document, Seq, Gram, Word, Index, Link, Node, IONode
+from nlplib.core.model import Document, Seq, Gram, Word, Index, NeuralNetwork, NeuralNetworkElement, Link, Node, IONode
 from nlplib.core import Base
 
 __all__ = ['Mapper']
@@ -60,16 +60,27 @@ class Mapper (Base) :
           Column('last_character', Integer),
           Column('tokenization_algorithm', String))
 
+    Table('neural_network',
+          metadata,
+          Column('id', Integer, primary_key=True),
+          Column('name', String, unique=True, nullable=False))
+
+    Table('neural_network_element',
+          metadata,
+          Column('id', Integer, primary_key=True),
+          Column('type', String),
+          Column('neural_network_id', Integer, ForeignKey('neural_network.id'), nullable=False))
+
     Table('link',
           metadata,
+          Column('id', Integer, ForeignKey('neural_network_element.id'), primary_key=True),
           Column('input_node_id', Integer, ForeignKey('node.id'), primary_key=True),
           Column('output_node_id', Integer, ForeignKey('node.id'), primary_key=True),
           Column('strength', Float))
 
     Table('node',
           metadata,
-          Column('id', Integer, primary_key=True),
-          Column('type', String),
+          Column('id', Integer, ForeignKey('neural_network_element.id'), primary_key=True),
           Column('layer', Integer),
           Column('current', Float))
 
@@ -80,28 +91,48 @@ class Mapper (Base) :
 
     tables = metadata.tables
 
-    def __init__ (self, document_cls=Document, seq_cls=Seq, gram_cls=Gram, word_cls=Word, index_cls=Index,
-                  link_cls=Link, node_cls=Node, io_node_cls=IONode) :
+    def __init__ (self,
+                  document_cls = Document,
+                  seq_cls      = Seq,
+                  gram_cls     = Gram,
+                  word_cls     = Word,
+                  index_cls    = Index,
+
+                  neural_network_cls         = NeuralNetwork,
+                  neural_network_element_cls = NeuralNetworkElement,
+                  link_cls                   = Link,
+                  node_cls                   = Node,
+                  io_node_cls                = IONode) :
 
         self.classes = classes = OrderedDict()
+
         classes['document'] = document_cls
         classes['seq']      = seq_cls
         classes['gram']     = gram_cls
         classes['word']     = word_cls
         classes['index']    = index_cls
-        classes['link']     = link_cls
-        classes['node']     = node_cls
-        classes['io_node']  = io_node_cls
+
+        classes['neural_network']         = neural_network_cls
+        classes['neural_network_element'] = neural_network_element_cls
+        classes['link']                   = link_cls
+        classes['node']                   = node_cls
+        classes['io_node']                = io_node_cls
 
     def __call__ (self) :
         ''' This maps classes to their respective tables. '''
 
+        def map_default (_, cls, table) :
+            mapper(cls, table)
+
         for name, cls in self.classes.items() :
             table = self.tables[name]
 
-            map_cls = self.mappers.get(name, lambda _, cls, table : mapper(cls, table))
+            map_cls = self.mappers.get(name, map_default)
 
-            map_cls(self, cls, table)
+            try :
+                map_cls(self, cls, table)
+            except ArgumentError :
+                pass
 
     def _map_document (self, document_cls, document_table) :
         mapper(document_cls,
@@ -131,6 +162,26 @@ class Mapper (Base) :
                inherits=self.classes['seq'],
                polymorphic_identity='word')
 
+    def _map_neural_network (self, neural_network_cls, neural_network_table) :
+        mapper(neural_network_cls,
+               neural_network_table,
+               properties={'elements' : relationship(self.classes['neural_network_element']),
+                           'links'    : relationship(self.classes['link']),
+                           'nodes'    : relationship(self.classes['node']),
+                           'io_nodes' : relationship(self.classes['io_node'])})
+
+    def _map_neural_network_element (self, neural_network_element_cls, neural_network_element_table) :
+        mapper(neural_network_element_cls,
+               neural_network_element_table,
+               polymorphic_identity='neural_network_element',
+               polymorphic_on=neural_network_element_table.c.type)
+
+    def _map_link (self, link_cls, link_table) :
+        mapper(link_cls,
+               link_table,
+               inherits=self.classes['neural_network_element'],
+               polymorphic_identity='link')
+
     def _map_node (self, node_cls, node_table) :
         link_table = self.tables['link']
 
@@ -142,8 +193,8 @@ class Mapper (Base) :
 
         mapper(node_cls,
                node_table,
+               inherits=self.classes['neural_network_element'],
                polymorphic_identity='node',
-               polymorphic_on=node_table.c.type,
                properties={'output_nodes' : relation})
 
     def _map_io_node (self, io_node_cls, io_node_table) :
@@ -156,11 +207,12 @@ class Mapper (Base) :
                'seq'      : _map_seq,
                'gram'     : _map_gram,
                'word'     : _map_word,
-               'node'     : _map_node,
-               'io_node'  : _map_io_node}
 
-try :
-    Mapper()()
-except ArgumentError :
-    pass
+               'neural_network'         : _map_neural_network,
+               'neural_network_element' : _map_neural_network_element,
+               'link'                   : _map_link,
+               'node'                   : _map_node,
+               'io_node'                : _map_io_node}
+
+Mapper()()
 

@@ -41,6 +41,10 @@ class Access (SessionDependent) :
 
         raise NotImplementedError
 
+    def all_neural_networks (self) :
+
+        raise NotImplementedError
+
     def specific (self, cls, id) :
         ''' This returns a specific object by id. '''
 

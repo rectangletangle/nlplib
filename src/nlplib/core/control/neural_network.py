@@ -5,8 +5,10 @@ from math import tanh
 
 from sqlalchemy.orm.exc import NoResultFound
 
-from nlplib.core.model import Seq, Link, Node, IONode, Word, Access, SessionDependent
+from nlplib.core.model import (Seq, Link, Node, IONode, Word, NeuralNetwork as NeuralNetworkModel, Access,
+                               SessionDependent)
 from nlplib.general.iter import windowed, chop
+from nlplib.core import Base
 
 def dtanh (y) :
     return 1.0 - y * y
@@ -15,12 +17,10 @@ def nodes_at (session, layer) :
     return session._sqlalchemy_session.query(Node).filter_by(layer=layer).all()
 
 def input_nodes_for_seqs (session, seqs) :
-    return [session._sqlalchemy_session.query(IONode).filter_by(layer=0, seq_id=seq.id).one()
-            for seq in seqs]
+    return [session._sqlalchemy_session.query(IONode).filter_by(layer=0, seq_id=seq.id).one() for seq in seqs]
 
-class Structure (SessionDependent) :
-    def __init__ (self, session, width=10, height=10, *args, **kw) :
-        super().__init__(session, *args, **kw)
+class Structure (Base) :
+    def __init__ (self, width=10, height=10) :
         self.width  = width
         self.height = height
 
@@ -43,26 +43,30 @@ class Structure (SessionDependent) :
     def girth (self) :
         return range(self.width)
 
-    def input_nodes (self) :
-        return nodes_at(self.session, self.input_node_layer())
+class NodeAccess (SessionDependent) :
+    # todo : merge with Access when done.
 
-    def hidden_nodes (self) :
-        for layer in self.hidden_node_layers() :
+    def input_nodes (self, structure) :
+        return nodes_at(self.session, structure.input_node_layer())
+
+    def hidden_nodes (self, structure) :
+        for layer in structure.hidden_node_layers() :
             yield nodes_at(self.session, layer)
 
-    def output_nodes (self) :
-        return nodes_at(self.session, self.output_node_layer())
+    def output_nodes (self, structure) :
+        return nodes_at(self.session, structure.output_node_layer())
 
-    def io_paired_nodes (self) :
-        for input_layer, output_layer in self.io_paired_layers() :
+    def io_paired_nodes (self, structure) :
+        for input_layer, output_layer in structure.io_paired_layers() :
             # This could be done with far fewer <nodes_at> queries.
             yield (nodes_at(self.session, input_layer), nodes_at(self.session, output_layer))
 
-class Build (SessionDependent) :
-    def __init__ (self, *args, **kw) :
-        super().__init__(*args, **kw)
-        self.structure = Structure(self.session)
+class StructureDependent (SessionDependent) :
+    def __init__ (self, session, structure, *args, **kw) :
+        super().__init__(session, *args, **kw)
+        self.structure = structure
 
+class Build (StructureDependent) :
     def _get_or_create (self, query, create) :
         result = query()
 
@@ -70,16 +74,6 @@ class Build (SessionDependent) :
             result = create()
 
         return result
-
-    def _get_or_create_hidden (self, input_nodes, output_nodes) :
-
-        matches = [node for node in self.session._sqlalchemy_session.query(Node).all()
-                   if node.input_nodes == input_nodes and node.output_nodes == output_nodes]
-
-        if not matches :
-            return self.session.add(Node(layer=1))
-        else :
-            return matches[0]
 
     def link_up (self, input_node, output_node, strength) :
         return self._get_or_create(lambda : self.session._sqlalchemy_session.query(Link).get((input_node.id, output_node.id)),
@@ -112,18 +106,16 @@ class Build (SessionDependent) :
             for _ in self.structure.girth() :
                 yield self.session.add(Node(layer=layer))
 
-    def __call__ (self, input_seqs, output_seqs) :
+    def make_all_nodes (self, input_seqs, output_seqs) :
         input_nodes  = list(self.make_io_nodes(input_seqs, self.structure.input_node_layer()))
         hidden_nodes = list(self.make_hidden_nodes())
         output_nodes = list(self.make_io_nodes(output_seqs, self.structure.output_node_layer()))
 
+    def __call__ (self, input_seqs, output_seqs) :
+        self.make_all_nodes(input_seqs, output_seqs)
         self.link_up_all()
 
-class FeedForward (SessionDependent) :
-    def __init__ (self, *args, **kw) :
-        super().__init__(*args, **kw)
-        self.structure = Structure(self.session)
-
+class FeedForward (StructureDependent) :
     def _get_link (self, input_node, output_node) :
         return self.session._sqlalchemy_session.query(Link).get((input_node.id, output_node.id))
 
@@ -139,7 +131,7 @@ class FeedForward (SessionDependent) :
 
     def results (self) :
         access = Access(self.session)
-        for output_node in self.structure.output_nodes() :
+        for output_node in NodeAccess(self.session).output_nodes(self.structure) :
             yield (access.specific(Seq, output_node.seq_id), output_node.current)
 
     def __call__ (self, active_input_nodes) :
@@ -147,7 +139,7 @@ class FeedForward (SessionDependent) :
 
         self.fire(active_input_nodes, nodes_at(self.session, 1))
 
-        io_paired_nodes = self.structure.io_paired_nodes()
+        io_paired_nodes = NodeAccess(self.session).io_paired_nodes(self.structure)
         next(io_paired_nodes) # The first pair is skipped, because it was just done above.
         for input_nodes, output_nodes in io_paired_nodes :
             self.fire(input_nodes, output_nodes)
@@ -207,15 +199,19 @@ class NeuralNetwork (SessionDependent) :
     def __init__ (self, *args, **kw) :
         super().__init__(*args, **kw)
 
-        self.feed_forward = FeedForward(self.session)
-        self.build        = Build(self.session)
-        self.train        = BackPropagate(self.session)
+        self.structure = Structure(1, 3)
 
+        self.build = Build(self.session, self.structure)
 
+    def feed_forward (self, active_input_nodes) :
+        return FeedForward(self.session, self.structure)(active_input_nodes)
 
-    def input (self, seqs) :
+    def train (self) :
+        raise NotImplementedError
+        return BackPropagate(self.session, self.structure)()
+
+    def ask (self, seqs) :
         return self.feed_forward(input_nodes_for_seqs(self.session, seqs))
-
 
 def __demo__ () :
     from nlplib.core.model import Database
@@ -230,46 +226,19 @@ def __demo__ () :
         nn = NeuralNetwork(session)
 
         access = Access(session)
-        global print
-        print(0)
+
         nn.build(access.words('a b'), access.words('d e f'))
-        print(1)
-        def print (*a, **k) :
-            pass
 
-        print(Structure(session).input_nodes())
-        for layer in Structure(session).hidden_nodes() :
-            print(layer)
+        print(list(nn.ask(access.words('a b'))))
 
-        print(Structure(session).output_nodes())
-        print()
-        for pair in nn.input(access.words('a b')) :
-            print(pair)
+def _test_structure (ut) :
 
-##        output_seqs = access.words('d e f')
-##        for i in range(30) :
-##            nn.train(access.words('a c'), output_seqs, output_seqs[0])
-##            nn.train(access.words('b c'), output_seqs, output_seqs[1])
-##            nn.train(access.words('a'), output_seqs, output_seqs[2])
-##            print(i)
-##
-##        print(nn.input(access.words('a c')))
-##        # [0.861, 0.011, 0.016]
-##
-##        print(nn.input(access.words('b c')))
-##        # [-0.030, 0.883, 0.006]
-##
-##        print(nn.input(access.words('c')))
-##        # [0.8459277961565395, -0.011590385221469553, -0.8361964445052618]
-
-
-def __test__ (ut) :
-    structure = Structure(None, 1, 2)
+    structure = Structure(1, 2)
     ut.assert_equal(list(structure.io_paired_layers()),   [(0, 1)] )
     ut.assert_equal(list(structure.all_layers()),         [0, 1]   )
     ut.assert_equal(list(structure.hidden_node_layers()), []       )
 
-    structure = Structure(None, 1, 3)
+    structure = Structure(1, 3)
     ut.assert_equal(list(structure.io_paired_layers()),   [(0, 1), (1, 2)] )
     ut.assert_equal(list(structure.all_layers()),         [0, 1, 2]        )
     ut.assert_equal(list(structure.hidden_node_layers()), [1]              )
@@ -277,7 +246,7 @@ def __test__ (ut) :
     ut.assert_equal(structure.output_node_layer(),        2                )
     ut.assert_equal(structure.input_node_layer(),         0                )
 
-    structure = Structure(None, 2, 4)
+    structure = Structure(2, 4)
     ut.assert_equal(list(structure.io_paired_layers()),   [(0, 1), (1, 2), (2, 3)] )
     ut.assert_equal(list(structure.all_layers()),         [0, 1, 2, 3]             )
     ut.assert_equal(list(structure.hidden_node_layers()), [1, 2]                   )
@@ -285,8 +254,11 @@ def __test__ (ut) :
     ut.assert_equal(structure.output_node_layer(),        3                        )
     ut.assert_equal(structure.input_node_layer(),         0                        )
 
+def __test__ (ut) :
+    _test_structure(ut)
+
 if __name__ == '__main__' :
     from nlplib.general.unit_test import UnitTest
     __test__(UnitTest())
-    __demo__()
+    #__demo__()
 

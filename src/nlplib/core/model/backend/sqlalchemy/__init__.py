@@ -29,6 +29,7 @@ class Database (abstract.Database) :
 
         self._sqlalchemy_engine = create_engine(self.path)
         self._make_sqlalchemy_session = sessionmaker(bind=self._sqlalchemy_engine)
+
         Mapper.metadata.create_all(self._sqlalchemy_engine)
 
     @contextmanager

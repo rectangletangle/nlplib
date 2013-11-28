@@ -6,8 +6,8 @@ from nlplib.core.process import process
 from nlplib.core import Base
 from nlplib.general import pretty_truncate, literal_representation
 
-__all__ = ['Model', 'Document', 'Seq', 'Gram', 'Word', 'Index', 'Link', 'Node', 'IONode', 'SessionDependent', 'Access',
-           'Indexer', 'Database']
+__all__ = ['Model', 'Document', 'Seq', 'Gram', 'Word', 'Index', 'NeuralNetwork', 'NeuralNetworkElement', 'Link',
+           'Node', 'IONode', 'SessionDependent', 'Access', 'Indexer', 'Database']
 
 class Model (Base) :
     ''' The base class for all models. '''
@@ -175,21 +175,38 @@ class Index (Model) :
     def __repr__ (self) :
         return super().__repr__(self.first_token)
 
-class Link (Model) :
+class NeuralNetwork (Model) :
+    def __init__ (self, name, elements=(), links=(), nodes=(), io_nodes=()) :
+        self.name = name
+
+        self.elements = list(elements)
+        self.links    = list(links)
+        self.nodes    = list(nodes)
+        self.io_nodes = list(io_nodes)
+
+    def __repr__ (self) :
+        return literal_representation(self, self.name)
+
+class NeuralNetworkElement (Model) :
+    def __init__ (self, neural_network) :
+        self.neural_network_id = neural_network.id
+
+class Link (NeuralNetworkElement) :
     ''' A class which links together neural network nodes. '''
 
-    def __init__ (self, input_node, output_node, strength) :
+    def __init__ (self, neural_network, input_node, output_node, strength) :
+        super().__init__(neural_network)
         self.input_node_id  = input_node.id
         self.output_node_id = output_node.id
 
         self.strength = strength
 
-class Node (Model) :
+class Node (NeuralNetworkElement) :
     ''' A class for neural network nodes. '''
 
-    def __init__ (self, layer, current=1.0, input_nodes=(), output_nodes=()) :
+    def __init__ (self, neural_network, layer, current=1.0, input_nodes=(), output_nodes=()) :
+        super().__init__(neural_network)
         self.layer = layer
-
         self.current = current
 
         self.input_nodes  = list(input_nodes)
@@ -199,8 +216,8 @@ class IONode (Node) :
     ''' A class for input and output neural network nodes. These are the nodes on the edge of a neural network, which
         hold data (in this case sequences). '''
 
-    def __init__ (self, layer, seq, *args, **kw) :
-        super().__init__(layer, *args, **kw)
+    def __init__ (self, neural_network, layer, seq, *args, **kw) :
+        super().__init__(neural_network, layer, *args, **kw)
         self.seq_id = seq.id
 
 class SessionDependent (Base) :

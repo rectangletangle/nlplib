@@ -20,7 +20,7 @@ class UnitTest :
 
     def _assert (self, value) :
 
-        # The actual assert statement isn't used, because it is disabled in "optimized" Python files (.pyo).
+        # The actual assert statement isn't used, because it's disabled in "optimized" Python files (.pyo).
         if not value :
             raise UnitTestFailure
 

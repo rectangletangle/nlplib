@@ -1,5 +1,5 @@
 
-from nlplib.core.model import Document, Seq, Gram, Word, Index
+from nlplib.core.model import Document, Seq, Gram, Word, Index, NeuralNetwork
 from nlplib.core.model.backend.abstract import access as abstract
 from nlplib.core.process import process
 from nlplib.general.iter import chunked
@@ -24,6 +24,9 @@ class Access (abstract.Access) :
 
     def all_indexes (self) :
         return self._all(Index)
+
+    def all_neural_networks (self) :
+        return self._all(NeuralNetwork)
 
     def specific (self, cls, id) :
         return self.session._sqlalchemy_session.query(cls).get(id)

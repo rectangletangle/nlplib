@@ -20,7 +20,7 @@ def windowed (iterable, size, step=1) :
     ''' This function yields a tuple of a given size then steps forward. If the step is smaller than the size, the
         function yields overlapped tuples. '''
 
-    iterable = tuple(iterable) # Could be made more efficient, then used to make chunked.
+    iterable = tuple(iterable) # Could be made more efficient, then used to implement chunked.
     for i in range(0, len(iterable), step) :
         yield iterable[i:i+size]
 

@@ -86,6 +86,18 @@ class Access (SessionDependent) :
 
         raise NotImplementedError
 
+    def neural_network (self, name) :
+        raise NotImplementedError
+
+    def nodes_in_layer (self, neural_network, layer_index) :
+        raise NotImplementedError
+
+    def nodes_for_seqs (self, seqs, layer_index=None) :
+        raise NotImplementedError
+
+    def link (self, neural_network, input_node, output_node) :
+        raise NotImplementedError
+
 def abstract_test (ut, db_cls, access_cls) :
 
     from nlplib.core.model import Seq, Gram, Word

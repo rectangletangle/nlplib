@@ -1,6 +1,6 @@
 
 
-from nlplib.core.model.backend.sqlalchemy.map import Mapper
+from nlplib.core.model.backend.sqlalchemy.map import default_mapper
 from nlplib.core.model.backend.sqlalchemy.access import Access
 from nlplib.core.model.backend.abstract import index as abstract
 
@@ -30,7 +30,7 @@ class AddIndexes(abstract.AddIndexes) :
         self.add_indexes_to_db(self.make_indexes(self.document, not_yet_indexed))
 
     def add_indexes_to_db (self, indexes) :
-        self.session._sqlalchemy_session.execute(Mapper.tables['index'].insert(), list(indexes))
+        self.session._sqlalchemy_session.execute(default_mapper.tables['index'].insert(), list(indexes))
 
 class RemoveIndexes (abstract.RemoveIndexes) :
     def access (self, session) :

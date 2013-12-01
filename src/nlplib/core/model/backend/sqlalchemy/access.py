@@ -1,5 +1,5 @@
 
-from nlplib.core.model import Document, Seq, Gram, Word, Index, NeuralNetwork
+from nlplib.core.model import Document, Seq, Gram, Word, Index, NeuralNetwork, Node, IONode, Link
 from nlplib.core.model.backend.abstract import access as abstract
 from nlplib.core.process import process
 from nlplib.general.iter import chunked
@@ -49,13 +49,41 @@ class Access (abstract.Access) :
 
     def indexes (self, document) :
         session = self.session._sqlalchemy_session
-        return [(seq, index) for index, seq # todo : change order to match concordance
-                in session.query(Index, Seq).filter(Index.document_id == document.id).join(Seq).all()]
+        return session.query(Index, Seq).filter(Index.document_id == document.id).join(Seq).all()
 
     def matching (self, strings, cls=Seq, chunk_size=200) :
         for chunked_strings in chunked((process(string) for string in strings), chunk_size) :
             for match in self.session._sqlalchemy_session.query(cls).filter(cls.clean.in_(chunked_strings)).all() :
                 yield match
+
+    def neural_network (self, name) :
+        return self.session._sqlalchemy_session.query(NeuralNetwork).filter_by(name=str(name)).first()
+
+    def nodes_in_layer (self, neural_network, layer_index) :
+        session = self.session._sqlalchemy_session
+        return session.query(Node).filter_by(neural_network_id=neural_network.id, layer_index=layer_index).all()
+
+    def nodes_for_seqs (self, neural_network, seqs, layer_index=None) :
+        # todo : This probably could be made more efficient using the SQL <in> operator.
+
+        neural_network_id = neural_network.id
+
+        query_nodes = self.session._sqlalchemy_session.query(IONode).filter_by
+
+        if layer_index is None :
+            for seq in seqs :
+                for node in query_nodes(neural_network_id=neural_network_id, seq_id=seq.id).all() :
+                    yield node
+        else :
+            for seq in seqs :
+                for node in query_nodes(neural_network_id=neural_network_id, layer_index=layer_index,
+                                        seq_id=seq.id).all() :
+                    yield node
+
+    def link (self, neural_network, input_node, output_node) :
+        return self.session._sqlalchemy_session.query(Link).filter_by(neural_network_id=neural_network.id,
+                                                                      input_node_id=input_node.id,
+                                                                      output_node_id=output_node.id).first()
 
 def __test__ (ut) :
     from nlplib.core.model.backend.abstract.access import abstract_test

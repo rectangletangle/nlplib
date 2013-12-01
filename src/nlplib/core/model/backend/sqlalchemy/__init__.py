@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 
-from nlplib.core.model.backend.sqlalchemy.map import Mapper
+from nlplib.core.model.backend.sqlalchemy.map import default_mapper
 from nlplib.core.model.backend import abstract
 
 __all__ = ['Session', 'Database']
@@ -30,7 +30,7 @@ class Database (abstract.Database) :
         self._sqlalchemy_engine = create_engine(self.path)
         self._make_sqlalchemy_session = sessionmaker(bind=self._sqlalchemy_engine)
 
-        Mapper.metadata.create_all(self._sqlalchemy_engine)
+        default_mapper.metadata.create_all(self._sqlalchemy_engine)
 
     @contextmanager
     def session (self) :

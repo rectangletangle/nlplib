@@ -118,7 +118,7 @@ class AddIndexes (_EditIndexes) :
 
 class RemoveIndexes (_EditIndexes) :
     def __call__ (self) :
-        for seq, index in self.access(self.session).indexes(self.document) :
+        for index, seq in self.access(self.session).indexes(self.document) :
             seq.prevalence -= 1
 
             if seq.prevalence < 1 :

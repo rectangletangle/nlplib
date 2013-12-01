@@ -9,7 +9,6 @@ from sqlalchemy import create_engine
 
 from nlplib.core.model.backend.sqlalchemy.map import default_mapper
 from nlplib.core.model.backend.sqlalchemy.access import Access
-from nlplib.core.model.backend.sqlalchemy.index import Indexer
 from nlplib.core.model.backend import abstract
 
 __all__ = ['Session', 'Database']
@@ -19,13 +18,27 @@ class Session (abstract.Session) :
         self._sqlalchemy_session = sqlalchemy_session
 
         self.access = Access(self)
-        self.index  = Indexer(self)
 
     def add (self, object) :
         self._sqlalchemy_session.add(object)
         self._sqlalchemy_session.flush((object,)) # todo : make lazy
 
         return object
+
+    def _as_dict (self, table, object) :
+        return {attr_name : getattr(object, attr_name) for attr_name in table.c.keys()}
+
+    def add_many (self, objects) :
+        objects = list(objects)
+
+        try :
+            table = default_mapper.classes_with_tables[objects[0].__class__]
+        except IndexError :
+            pass
+        else :
+            self._sqlalchemy_session.execute(table.insert(), [self._as_dict(table, object) for object in objects])
+
+        return objects
 
     def remove (self, object) :
         self._sqlalchemy_session.delete(object)

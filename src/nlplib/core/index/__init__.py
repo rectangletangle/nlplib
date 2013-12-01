@@ -7,7 +7,7 @@ from nlplib.core.model import SessionDependent, Word, Gram, Index
 from nlplib.general.math import hyperbolic
 from nlplib.general.iter import windowed
 
-__all__ = ['AddIndexes', 'RemoveIndexes', 'Indexer', 'abstract_test']
+__all__ = ['AddIndexes', 'RemoveIndexes', 'Indexer']
 
 class _EditIndexes (SessionDependent) :
     ''' A base class for classes which edit a document's indexes. '''
@@ -30,6 +30,13 @@ class AddIndexes (_EditIndexes) :
     def __init__ (self, session, document, max_gram=5) :
         super().__init__(session, document)
         self.max_gram = max_gram
+
+    def __call__ (self) :
+        seqs_with_tokens_from_document = self.seqs_with_tokens(self.document, self.max_gram)
+
+        not_yet_indexed = self.merge_with_seqs_in_db(seqs_with_tokens_from_document)
+
+        self.add_indexes_to_db(self.make_indexes(self.document, not_yet_indexed))
 
     def merge_with_seqs_in_db (self, seqs_with_tokens_from_document) :
         seqs_from_document = (seq for seq, list_of_tokens in seqs_with_tokens_from_document)
@@ -58,13 +65,13 @@ class AddIndexes (_EditIndexes) :
         # z==10, if prevalence < 10 : chance of keeping == 100%
         return random.random() > hyperbolic(y=prevalence, z=10, base=2)
 
-    # give a better name
+    # todo : give a better name
     def _accumulate (self, seqs, seq, tokens) :
         seq, list_of_tokens = seqs.setdefault(str(seq), (seq, []))
         seq.prevalence += 1
         list_of_tokens.append(tokens)
 
-    # give a better name
+    # todo : give a better name
     def _gramify (self, tokens, min_size=1) :
         for i in range(min_size, len(tokens) + 1) :
             yield tokens[:i]
@@ -97,21 +104,21 @@ class AddIndexes (_EditIndexes) :
 
         return list(seqs_with_tokens_from_document.values())
 
-    def index (self, *args, **kw) :
-        return Index(*args, **kw)
-
     def make_indexes (self, document, not_yet_indexed) :
         for seq, list_of_tokens in not_yet_indexed :
             for tokens in list_of_tokens :
                 first_token = tokens[0]
                 last_token  = tokens[-1]
 
-                yield self.index(document,
-                                 seq,
-                                 first_token.index,
-                                 last_token.index,
-                                 first_token.first_character_index,
-                                 last_token.last_character_index)
+                yield Index(document,
+                            seq,
+                            first_token.index,
+                            last_token.index,
+                            first_token.first_character_index,
+                            last_token.last_character_index)
+
+    def add_indexes_to_db (self, indexes) :
+        self.session.add_many(indexes)
 
 class RemoveIndexes (_EditIndexes) :
     def __call__ (self) :
@@ -137,15 +144,15 @@ class Indexer (SessionDependent) :
         ''' This will add an index for each word and gram in a document. Words and grams already in the database will
             have their prevalence scores incremented accordingly.  '''
 
-        raise NotImplementedError
+        AddIndexes(self.session, document, *args, **kw)()
 
     def remove (self, document) :
         ''' This removes the indexes for a document. This undoes <add>. '''
 
-        raise NotImplementedError
+        RemoveIndexes(self.session, document)()
 
-def abstract_test (ut, db_cls) :
-    from nlplib.core.model import Document
+def __test__ (ut) :
+    from nlplib.core.model import Document, Database
     from nlplib.core.process.concordance import documents_containing
     from nlplib.core.process.token import re_tokenize
 
@@ -157,7 +164,7 @@ def abstract_test (ut, db_cls) :
 
     max_gram = 3
 
-    db = db_cls()
+    db = Database()
 
     with db as session :
         for text in corpus :
@@ -175,13 +182,12 @@ def abstract_test (ut, db_cls) :
     with db as session :
         ut.assert_equal(max(len(tuple(gram)) for gram in session.access.all_grams()), max_gram)
         ut.assert_equal(len(session.access.all_indexes()), 210)
-        from pprint import pprint
 
         interject = documents_containing(session.access.concordance('interject'))
         ut.assert_equal(len(interject), 1)
         interject_document, indexes = interject.popitem()
         ut.assert_equal(len(indexes), 1)
-        interject_word, interject_index = indexes.pop()
+        interject_index, interject_word = indexes.pop()
         ut.assert_equal((str(interject_document), str(interject_word), int(interject_index)),
                         (corpus[0], 'interject', 5))
 
@@ -191,7 +197,7 @@ def abstract_test (ut, db_cls) :
         # Sets are used because order is not guaranteed.
         ut.assert_equal({str(document) for document in gnu.keys()},
                         set(corpus))
-        ut.assert_equal({(str(word), int(index)) for indexes in gnu.values() for word, index in indexes},
+        ut.assert_equal({(str(word), int(index)) for indexes in gnu.values() for index, word in indexes},
                         {('gnu', 17), ('gnu', 23), ('gnu', 19), ('gnu', 30)})
 
         ut.assert_true(session.access.word('proprietary') is None)
@@ -200,11 +206,15 @@ def abstract_test (ut, db_cls) :
 
     # Test the removal of indexes.
     with db as session :
-        for document in access_cls(session).all_documents() :
+        for document in session.access.all_documents() :
             RemoveIndexes(session, document)()
 
     with db as session :
         ut.assert_equal(len(session.access.all_seqs()), 0)
         ut.assert_equal(len(session.access.all_indexes()), 0)
         ut.assert_equal(len(session.access.all_documents()), 2)
+
+if __name__ == '__main__' :
+    from nlplib.general.unit_test import UnitTest
+    __test__(UnitTest())
 

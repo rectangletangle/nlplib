@@ -29,6 +29,8 @@ class Mapper (Base) :
         self.mappers = [class_mapper(self.metadata, self.tables, self.classes)
                         for class_mapper in self.class_mappers]
 
+        self.classes_with_tables = {mapper.cls : mapper.table for mapper in self.mappers}
+
     def map (self) :
         ''' This maps classes to their respective tables. '''
 

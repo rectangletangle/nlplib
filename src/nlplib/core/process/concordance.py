@@ -70,6 +70,7 @@ def _test_window (ut) :
 
 def __test__ (ut) :
     from nlplib.core.model import Database, Document
+    from nlplib.core.index import Indexer
 
     _test_window(ut)
 
@@ -89,8 +90,9 @@ def __test__ (ut) :
         for document_string in document_strings :
             session.add(Document(document_string))
 
+        indexer = Indexer(session)
         for document in session.access.all_documents() :
-            session.index.add(document)
+            indexer.add(document)
 
     # Testing
     with db as session :

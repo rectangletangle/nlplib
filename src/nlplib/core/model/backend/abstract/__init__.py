@@ -13,10 +13,12 @@ class Session (Base) :
 
     def __init__ (self) :
         self.access = None
-        self.index  = None
 
     def add (self, object) :
         raise NotImplementedError
+
+    def add_many (self, objects) :
+        return [self.add(object) for object in objects]
 
     def remove (self, object) :
         raise NotImplementedError

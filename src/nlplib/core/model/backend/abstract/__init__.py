@@ -11,6 +11,10 @@ class Session (Base) :
     ''' This class represents a session with a database. Within the session context, objects can be added, removed, or
         queried (using the session dependent access class). '''
 
+    def __init__ (self) :
+        self.access = None
+        self.index  = None
+
     def add (self, object) :
         raise NotImplementedError
 
@@ -47,7 +51,7 @@ class Database (Base) :
 
         raise NotImplementedError
 
-def abstract_test (ut, db_cls, access_cls) :
+def abstract_test (ut, db_cls) :
     from nlplib.core.model import Word
 
     db = db_cls()
@@ -58,10 +62,10 @@ def abstract_test (ut, db_cls, access_cls) :
         session.add(Word('c'))
 
     with db as session :
-        session.remove(access_cls(session).word('b'))
+        session.remove(session.access.word('b'))
 
     with db as session :
-        ut.assert_equal(sorted(access_cls(session).all_words()), [Word('a'), Word('c')])
+        ut.assert_equal(sorted(session.access.all_words()), [Word('a'), Word('c')])
 
     db = db_cls()
 
@@ -72,5 +76,5 @@ def abstract_test (ut, db_cls, access_cls) :
             session_0.add(Word('z'))
 
     with db as session :
-        ut.assert_equal(sorted(access_cls(session).all_words()), [Word('x'), Word('y'), Word('z')])
+        ut.assert_equal(sorted(session.access.all_words()), [Word('x'), Word('y'), Word('z')])
 

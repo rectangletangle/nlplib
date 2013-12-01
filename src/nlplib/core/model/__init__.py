@@ -6,11 +6,9 @@ from nlplib.core.model.natural_language import Document, Seq, Gram, Word, Index
 from nlplib.core.model.neural_network import * # todo : make explicit
 
 try :
-    from nlplib.core.model.backend.sqlalchemy.access import Access
-    from nlplib.core.model.backend.sqlalchemy.index import Indexer
     from nlplib.core.model.backend.sqlalchemy import Database
-except IOError :
-    from nlplib.core.model.backend import sqlite3
+except ImportError :
+    from nlplib.core.model.backend.sqlite3 import Database
 
 __all__ = ['Model',
            'SessionDependent',
@@ -27,7 +25,5 @@ __all__ = ['Model',
            'Node',
            'IONode',
 
-           'Access',
-           'Indexer',
            'Database']
 

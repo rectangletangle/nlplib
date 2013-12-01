@@ -22,9 +22,6 @@ class _EditIndexes (SessionDependent) :
 
         raise NotImplementedError
 
-    def access (self, session) :
-        raise NotImplementedError
-
 class AddIndexes (_EditIndexes) :
     # Allow for word lemmatization
 
@@ -37,7 +34,7 @@ class AddIndexes (_EditIndexes) :
     def merge_with_seqs_in_db (self, seqs_with_tokens_from_document) :
         seqs_from_document = (seq for seq, list_of_tokens in seqs_with_tokens_from_document)
 
-        seqs_already_in_db = {str(seq) : seq for seq in self.access(self.session).matching(seqs_from_document)}
+        seqs_already_in_db = {str(seq) : seq for seq in self.session.access.matching(seqs_from_document)}
 
         for seq_from_document, list_of_tokens in seqs_with_tokens_from_document :
             try :
@@ -118,7 +115,7 @@ class AddIndexes (_EditIndexes) :
 
 class RemoveIndexes (_EditIndexes) :
     def __call__ (self) :
-        for index, seq in self.access(self.session).indexes(self.document) :
+        for index, seq in self.session.access.indexes(self.document) :
             seq.prevalence -= 1
 
             if seq.prevalence < 1 :
@@ -147,7 +144,7 @@ class Indexer (SessionDependent) :
 
         raise NotImplementedError
 
-def abstract_test (ut, db_cls, access_cls) :
+def abstract_test (ut, db_cls) :
     from nlplib.core.model import Document
     from nlplib.core.process.concordance import documents_containing
     from nlplib.core.process.token import re_tokenize
@@ -167,7 +164,7 @@ def abstract_test (ut, db_cls, access_cls) :
             session.add(Document(text))
 
     with db as session :
-        for document in access_cls(session).all_documents() :
+        for document in session.access.all_documents() :
             add_indexes = AddIndexes(session, document, max_gram=max_gram)
 
             # This is done in case the default <AddIndexes.tokenize> implementation is changed from <re_tokenize>.
@@ -176,13 +173,11 @@ def abstract_test (ut, db_cls, access_cls) :
             add_indexes()
 
     with db as session :
-        access = access_cls(session)
-
-        ut.assert_equal(max(len(tuple(gram)) for gram in access.all_grams()), max_gram)
-        ut.assert_equal(len(access.all_indexes()), 210)
+        ut.assert_equal(max(len(tuple(gram)) for gram in session.access.all_grams()), max_gram)
+        ut.assert_equal(len(session.access.all_indexes()), 210)
         from pprint import pprint
 
-        interject = documents_containing(access.concordance('interject'))
+        interject = documents_containing(session.access.concordance('interject'))
         ut.assert_equal(len(interject), 1)
         interject_document, indexes = interject.popitem()
         ut.assert_equal(len(indexes), 1)
@@ -190,8 +185,8 @@ def abstract_test (ut, db_cls, access_cls) :
         ut.assert_equal((str(interject_document), str(interject_word), int(interject_index)),
                         (corpus[0], 'interject', 5))
 
-        gnu = documents_containing(access.concordance('GNU'))
-        ut.assert_equal(access.word('GNU').prevalence, 4)
+        gnu = documents_containing(session.access.concordance('GNU'))
+        ut.assert_equal(session.access.word('GNU').prevalence, 4)
 
         # Sets are used because order is not guaranteed.
         ut.assert_equal({str(document) for document in gnu.keys()},
@@ -199,9 +194,9 @@ def abstract_test (ut, db_cls, access_cls) :
         ut.assert_equal({(str(word), int(index)) for indexes in gnu.values() for word, index in indexes},
                         {('gnu', 17), ('gnu', 23), ('gnu', 19), ('gnu', 30)})
 
-        ut.assert_true(access.word('proprietary') is None)
+        ut.assert_true(session.access.word('proprietary') is None)
 
-        ut.assert_equal(len(documents_containing(access.concordance('shell utilities')).values()), 1)
+        ut.assert_equal(len(documents_containing(session.access.concordance('shell utilities')).values()), 1)
 
     # Test the removal of indexes.
     with db as session :
@@ -209,8 +204,7 @@ def abstract_test (ut, db_cls, access_cls) :
             RemoveIndexes(session, document)()
 
     with db as session :
-        access = access_cls(session)
-        ut.assert_equal(len(access.all_seqs()), 0)
-        ut.assert_equal(len(access.all_indexes()), 0)
-        ut.assert_equal(len(access.all_documents()), 2)
+        ut.assert_equal(len(session.access.all_seqs()), 0)
+        ut.assert_equal(len(session.access.all_indexes()), 0)
+        ut.assert_equal(len(session.access.all_documents()), 2)
 

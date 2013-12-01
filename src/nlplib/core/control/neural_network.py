@@ -2,7 +2,7 @@
 
 from math import tanh
 
-from nlplib.core.model import Seq, Link, Node, IONode, Word, Access, NeuralNetworkElement, SessionDependent
+from nlplib.core.model import Seq, Link, Node, IONode, Word, NeuralNetworkElement, SessionDependent
 
 from nlplib.general.iter import windowed, chop
 from nlplib.core import Base
@@ -122,12 +122,6 @@ class MakeLayeredNeuralNetwork (NeuralNetworkDependent) :
     def link_up (self, layers) :
         size = 2
         for input_layer, output_layer in chop(windowed(layers, size=size, step=1), size) :
-
-            try :
-                self.session._sqlalchemy_session.flush() # todo : may need autoflush, remove if possible
-            except AttributeError :
-                pass
-
             for input_node in input_layer :
                 for output_node in output_layer :
                     self.session.add(Link(self.neural_network, input_node, output_node, strength=0.2))
@@ -154,7 +148,7 @@ class MakeLayeredNeuralNetwork (NeuralNetworkDependent) :
 
 class FeedForward (NeuralNetworkDependent) :
     def _access_link (self, input_node, output_node) :
-        return Access(self.session).link(self.neural_network, input_node, output_node)
+        return self.session.access.link(self.neural_network, input_node, output_node)
 
     def activate (self, input_nodes) :
         for input_node in input_nodes :
@@ -191,7 +185,7 @@ class FeedForward (NeuralNetworkDependent) :
         return active_nodes
 
 def ask (session, neural_network, seqs) :
-    active_input_nodes = Access(session).nodes_for_seqs(neural_network, seqs, layer_index=0)
+    active_input_nodes = session.access.nodes_for_seqs(neural_network, seqs, layer_index=0)
 
     return [(node, node.current) for node in FeedForward(session, neural_network)(active_input_nodes)]
 
@@ -205,22 +199,19 @@ def __demo__ () :
             session.add(Word(char))
 
     with db as session :
-        access = Access(session)
-
-        config = (StaticIOLayer(access.words('a b')),
+        config = (StaticIOLayer(session.access.words('a b')),
                   StaticLayer(1),
-                  StaticIOLayer(access.words('d e f')))
+                  StaticIOLayer(session.access.words('d e f')))
 
         session.add(LayeredNeuralNetwork('foo', config))
 
     from pprint import pprint
 
     with db as session :
-        MakeLayeredNeuralNetwork(session, Access(session).neural_network('foo'))()
+        MakeLayeredNeuralNetwork(session, session.access.neural_network('foo'))()
 
     with db as session :
-        access = Access(session)
-        print(ask(session, access.neural_network('foo'), access.words('a b')))
+        print(ask(session, session.access.neural_network('foo'), session.access.words('a b')))
 
 def _test_structure (ut) :
     raise DeprecationWarning

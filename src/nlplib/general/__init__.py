@@ -32,6 +32,11 @@ def literal_representation (object, *args, **kw) :
     return '{class_name}({args_and_kw})'.format(class_name=object.__class__.__name__,
                                                 args_and_kw=', '.join(_representation_args_and_kw(*args, **kw)))
 
+def all_subclasses (cls) :
+    for subclass in cls.__subclasses__() :
+        yield subclass
+        yield from all_subclasses(subclass)
+
 def __test__ (ut) :
     ut.assert_equal(pretty_truncate('hello world', 6, '...'), 'hello...')
     ut.assert_equal(pretty_truncate('hello world', 10000, '...'), 'hello world')

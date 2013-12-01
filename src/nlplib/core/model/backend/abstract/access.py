@@ -76,13 +76,13 @@ class Access (SessionDependent) :
 
         raise NotImplementedError
 
-    def matching (self, strings, cls=None, chunk_size=200) :
+    def matching (self, strings, cls=None, _chunk_size=200) :
         ''' This returns sequences (grams and words) that match the given list of strings.
 
             Note : This method is typically implemented using the SQL <IN> operator. Some database systems have
-            stipulations regarding the maximum size of the set used for membership testing. The optional <chunk_size>
+            stipulations regarding the maximum size of the set used for membership testing. The optional <_chunk_size>
             argument allows the set to be broken up into multiple smaller sets (chunks), with a length corresponding to
-            <chunk_size>, so that the set may fall under this limit. '''
+            <_chunk_size>, so that the set may fall under this limit. '''
 
         raise NotImplementedError
 
@@ -98,7 +98,7 @@ class Access (SessionDependent) :
     def link (self, neural_network, input_node, output_node) :
         raise NotImplementedError
 
-def abstract_test (ut, db_cls, access_cls) :
+def abstract_test (ut, db_cls) :
 
     from nlplib.core.model import Seq, Gram, Word
 
@@ -115,32 +115,30 @@ def abstract_test (ut, db_cls, access_cls) :
         return sorted(cls(char) for char in chars for cls in classes)
 
     with db as session :
-        access = access_cls(session)
-
-        ut.assert_equal(sorted(access.all_seqs()),
+        ut.assert_equal(sorted(session.access.all_seqs()),
                         mock((Seq, Gram, Word), chars))
-        ut.assert_equal(sorted(access.all_grams()),
+        ut.assert_equal(sorted(session.access.all_grams()),
                         mock((Gram,), chars))
-        ut.assert_equal(sorted(access.all_words()),
+        ut.assert_equal(sorted(session.access.all_words()),
                         mock((Word,), chars))
-        ut.assert_equal(sorted(access.vocabulary()),
-                        sorted(access.all_words()))
+        ut.assert_equal(sorted(session.access.vocabulary()),
+                        sorted(session.access.all_words()))
 
-        ut.assert_equal(sorted(access.most_prevalent(cls=Seq, top=3)),
+        ut.assert_equal(sorted(session.access.most_prevalent(cls=Seq, top=3)),
                         mock((Seq, Gram, Word), 'c'))
 
-        ut.assert_equal(sorted(access.most_prevalent(cls=Word, top=2)),
+        ut.assert_equal(sorted(session.access.most_prevalent(cls=Word, top=2)),
                         mock((Word,), 'bc'))
 
-        ut.assert_equal(access.word('a'), Word('a'))
-        ut.assert_equal(access.word('z'), None)
+        ut.assert_equal(session.access.word('a'), Word('a'))
+        ut.assert_equal(session.access.word('z'), None)
 
-        ut.assert_equal(access.words('b a c'), [Word('b'), Word('a'), Word('c')])
-        ut.assert_equal(access.words('b z c'), [Word('b'), None, Word('c')])
-        ut.assert_true(access.words('b a c') != [Word('a'), Word('b'), Word('c')])
-        ut.assert_equal(access.words(''), [])
+        ut.assert_equal(session.access.words('b a c'), [Word('b'), Word('a'), Word('c')])
+        ut.assert_equal(session.access.words('b z c'), [Word('b'), None, Word('c')])
+        ut.assert_true(session.access.words('b a c') != [Word('a'), Word('b'), Word('c')])
+        ut.assert_equal(session.access.words(''), [])
 
-        ut.assert_equal(sorted(access.matching(['a', 'b'])), mock((Seq, Gram, Word), 'ab'))
-        ut.assert_equal(sorted(access.matching(['a', 'b'], Word)), mock((Word,), 'ab'))
-        ut.assert_equal(sorted(access.matching([])), [])
+        ut.assert_equal(sorted(session.access.matching(['a', 'b'])), mock((Seq, Gram, Word), 'ab'))
+        ut.assert_equal(sorted(session.access.matching(['a', 'b'], Word)), mock((Word,), 'ab'))
+        ut.assert_equal(sorted(session.access.matching([])), [])
 

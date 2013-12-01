@@ -1,7 +1,7 @@
 ''' This tests the models. '''
 
 
-from nlplib.core.model import Database, Access, Word, NeuralNetwork, Link, Node, IONode, Seq, StaticIOLayer
+from nlplib.core.model import Database, Word, NeuralNetwork, Link, Node, IONode, Seq, StaticIOLayer
 
 def _test_neural_network_model (ut) :
 
@@ -17,19 +17,12 @@ def _test_neural_network_model (ut) :
         session.add(Word('c'))
 
     with db as session :
-        access = Access(session)
-
-        nn_a, nn_b, nn_c = access.all_neural_networks()
+        nn_a, nn_b, nn_c = session.access.all_neural_networks()
 
         def make_nn (nn, word_string, strength) :
 
             node    = session.add(Node(nn, layer_index=1))
-            io_node = session.add(IONode(nn, access.word(word_string), layer_index=0))
-
-            try :
-                session._sqlalchemy_session.flush() # todo : remove if possible
-            except AttributeError :
-                pass
+            io_node = session.add(IONode(nn, session.access.word(word_string), layer_index=0))
 
             session.add(Link(nn, node, io_node, strength))
 
@@ -38,19 +31,18 @@ def _test_neural_network_model (ut) :
         make_nn(nn_b, 'c', 2)
 
     with db as session :
-        access = Access(session)
-
-        nn_a, nn_b, nn_c = access.all_neural_networks()
+        nn_a, nn_b, nn_c = session.access.all_neural_networks()
 
         ut.assert_equal(len(nn_a.elements), 6)
         ut.assert_equal([link.strength for link in nn_a.links], [0, 1])
         ut.assert_equal(len(nn_a.nodes), 4)
-        ut.assert_equal([access.specific(Word, io_node.seq_id) for io_node in nn_a.io_nodes], [Word('a'), Word('b')])
+        ut.assert_equal([session.access.specific(Word, io_node.seq_id) for io_node in nn_a.io_nodes],
+                        [Word('a'), Word('b')])
 
         ut.assert_equal(len(nn_b.elements), 3)
         ut.assert_equal([link.strength for link in nn_b.links], [2])
         ut.assert_equal(len(nn_b.nodes), 2)
-        ut.assert_equal([access.specific(Word, io_node.seq_id) for io_node in nn_b.io_nodes], [Word('c')])
+        ut.assert_equal([session.access.specific(Word, io_node.seq_id) for io_node in nn_b.io_nodes], [Word('c')])
 
         ut.assert_equal(len(nn_c.elements), 0 )
         ut.assert_equal(len(nn_c.links),    0 )
@@ -68,9 +60,8 @@ def _test_neural_network_links (ut) :
         session.add(Word('bar'))
 
     with db as session :
-        access = Access(session)
-        nn = access.neural_network('foo')
-        word = access.word('bar')
+        nn = session.access.neural_network('foo')
+        word = session.access.word('bar')
 
         nodes = [IONode(nn, seq=word, layer_index=0),
                  IONode(nn, seq=word, layer_index=0),
@@ -84,17 +75,11 @@ def _test_neural_network_links (ut) :
         for node in nodes :
             session.add(node)
 
-        try :
-            session._sqlalchemy_session.flush() # todo : remove if possible
-        except AttributeError :
-            pass
-
         ids = get_ids(nodes)
 
     with db as session :
-        access = Access(session)
-        nn = access.neural_network('foo')
-        nodes = [access.specific(Node, id) for id in ids]
+        nn = session.access.neural_network('foo')
+        nodes = [session.access.specific(Node, id) for id in ids]
 
         session.add(Link(nn, nodes[0], nodes[2]))
         session.add(Link(nn, nodes[0], nodes[3]))
@@ -126,7 +111,7 @@ def _test_neural_network_layer_configurations (ut) :
             session.add(cls(char))
 
     with db as session :
-        session.add(StaticIOLayer(Access(session).all_seqs()))
+        session.add(StaticIOLayer(session.access.all_seqs()))
 
     with db as session :
         static_io_layer = session._sqlalchemy_session.query(StaticIOLayer).one()

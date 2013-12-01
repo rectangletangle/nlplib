@@ -51,8 +51,8 @@ class Access (abstract.Access) :
         session = self.session._sqlalchemy_session
         return session.query(Index, Seq).filter(Index.document_id == document.id).join(Seq).all()
 
-    def matching (self, strings, cls=Seq, chunk_size=200) :
-        for chunked_strings in chunked((process(string) for string in strings), chunk_size) :
+    def matching (self, strings, cls=Seq, _chunk_size=200) :
+        for chunked_strings in chunked((process(string) for string in strings), _chunk_size) :
             for match in self.session._sqlalchemy_session.query(cls).filter(cls.clean.in_(chunked_strings)).all() :
                 yield match
 
@@ -89,7 +89,7 @@ def __test__ (ut) :
     from nlplib.core.model.backend.abstract.access import abstract_test
     from nlplib.core.model.backend.sqlalchemy import Database
 
-    abstract_test(ut, Database, Access)
+    abstract_test(ut, Database)
 
 if __name__ == '__main__' :
     from nlplib.general.unit_test import UnitTest

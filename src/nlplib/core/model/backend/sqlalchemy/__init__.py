@@ -8,6 +8,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 
 from nlplib.core.model.backend.sqlalchemy.map import default_mapper
+from nlplib.core.model.backend.sqlalchemy.access import Access
+from nlplib.core.model.backend.sqlalchemy.index import Indexer
 from nlplib.core.model.backend import abstract
 
 __all__ = ['Session', 'Database']
@@ -16,8 +18,13 @@ class Session (abstract.Session) :
     def __init__ (self, sqlalchemy_session) :
         self._sqlalchemy_session = sqlalchemy_session
 
+        self.access = Access(self)
+        self.index  = Indexer(self)
+
     def add (self, object) :
         self._sqlalchemy_session.add(object)
+        self._sqlalchemy_session.flush((object,)) # todo : make lazy
+
         return object
 
     def remove (self, object) :
@@ -45,10 +52,9 @@ class Database (abstract.Database) :
             sqlalchemy_session.close()
 
 def __test__ (ut) :
-    from nlplib.core.model.backend.sqlalchemy.access import Access
     from nlplib.core.model.backend.abstract import abstract_test
 
-    abstract_test(ut, Database, Access)
+    abstract_test(ut, Database)
 
 if __name__ == '__main__' :
     from nlplib.general.unit_test import UnitTest

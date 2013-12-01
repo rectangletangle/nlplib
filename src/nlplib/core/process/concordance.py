@@ -69,7 +69,7 @@ def _test_window (ut) :
     ut.assert_equal(some_indexes[Window(0, 1).slice(5)],    [5, 6]          )
 
 def __test__ (ut) :
-    from nlplib.core.model import Database, Access, Indexer, Document
+    from nlplib.core.model import Database, Document
 
     _test_window(ut)
 
@@ -89,15 +89,12 @@ def __test__ (ut) :
         for document_string in document_strings :
             session.add(Document(document_string))
 
-        indexer = Indexer(session)
-        for document in Access(session).all_documents() :
-            indexer.add(document)
+        for document in session.access.all_documents() :
+            session.index.add(document)
 
     # Testing
     with db as session :
-        access = Access(session)
-
-        concordance = access.concordance('is a')
+        concordance = session.access.concordance('is a')
 
         grams_for_concordance = grams(concordance, window=Window(before=1, after=2))
         correct_strings       = ['Python is a widely used', 'Python is a significant fork']
@@ -114,13 +111,13 @@ def __test__ (ut) :
         ut.assert_equal(len(documents.keys()), 2)
 
         # Testing by glorified "word" counting.
-        ut.assert_equal(len(access.concordance('a')),           4 )
-        ut.assert_equal(len(access.concordance('of')),          2 )
-        ut.assert_equal(len(access.concordance('to')),          2 )
-        ut.assert_equal(len(access.concordance('and')),         2 )
-        ut.assert_equal(len(access.concordance('is a')),        2 )
-        ut.assert_equal(len(access.concordance('significant')), 1 )
-        ut.assert_equal(len(access.concordance('fork of')),     1 )
+        ut.assert_equal(len(session.access.concordance('a')),           4 )
+        ut.assert_equal(len(session.access.concordance('of')),          2 )
+        ut.assert_equal(len(session.access.concordance('to')),          2 )
+        ut.assert_equal(len(session.access.concordance('and')),         2 )
+        ut.assert_equal(len(session.access.concordance('is a')),        2 )
+        ut.assert_equal(len(session.access.concordance('significant')), 1 )
+        ut.assert_equal(len(session.access.concordance('fork of')),     1 )
 
 if __name__ == '__main__' :
     from nlplib.general.unit_test import UnitTest

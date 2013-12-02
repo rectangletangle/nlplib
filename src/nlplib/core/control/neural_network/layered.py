@@ -1,5 +1,4 @@
 
-
 from nlplib.core.control.neural_network.base import NeuralNetworkDependent
 from nlplib.core.model import Link, Node, IONode
 from nlplib.general.iter import windowed, chop
@@ -111,17 +110,20 @@ class MakeLayeredNeuralNetwork (NeuralNetworkDependent) :
 
 def _test_layered_structure (ut) :
     structure = _LayeredStructure((static(1), 1))
+    
     ut.assert_equal(list(structure.hidden_layer_indexes()), [])
 
     structure = _LayeredStructure(static(1) for _ in range(3))
+    
     ut.assert_equal(list(structure.hidden_layer_indexes()), [1] )
-    ut.assert_equal(structure.output_layer_index(),          2  )
-    ut.assert_equal(structure.input_layer_index(),           0  )
+    ut.assert_equal(structure.output_layer_index(),         2   )
+    ut.assert_equal(structure.input_layer_index(),          0   )
 
     structure = _LayeredStructure(static(2) for _ in range(4))
+    
     ut.assert_equal(list(structure.hidden_layer_indexes()), [1, 2] )
-    ut.assert_equal(structure.output_layer_index(),        3       )
-    ut.assert_equal(structure.input_layer_index(),         0       )
+    ut.assert_equal(structure.output_layer_index(),         3      )
+    ut.assert_equal(structure.input_layer_index(),          0      )
 
 def __test__ (ut) :
     _test_layered_structure(ut)

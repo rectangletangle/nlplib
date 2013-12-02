@@ -23,6 +23,6 @@ compatible with Python 2 or older.
 Installation should be straight forward; it installs like pretty much every
 other Python package.
 
-```
+```bash
 $ python3 setup.py install
 ```

@@ -1,8 +1,8 @@
 
 
-from math import log
+from math import log, tanh
 
-__all__ = ['normalize_value', 'normalize_values', 'avg', 'hyperbolic']
+__all__ = ['normalize_value', 'normalize_values', 'avg', 'hyperbolic', 'tanh', 'dtanh']
 
 def normalize_value (value, floor, ceiling) :
     ''' This normalizes a value between 0 and 1, assuming the value is between the floor and ceiling values. '''
@@ -27,6 +27,9 @@ def avg (values) :
 
 def hyperbolic (y=1, z=1, base=10) :
     return 0.5 * log(y/z, base)
+
+def dtanh (y) :
+    return 1.0 - y * y
 
 def __test__ (ut) :
     ut.assert_equal(normalize_value(55, 0, 100), 0.55)

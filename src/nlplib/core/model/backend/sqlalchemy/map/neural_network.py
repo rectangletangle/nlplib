@@ -5,63 +5,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, Float, String, ForeignKey, Table
 
 from nlplib.core.model.backend.sqlalchemy.map.base import ClassMapper
-from nlplib.core.model.neural_network import (LayerConfiguration, DynamicLayer, StaticLayer, StaticIOLayer,
-                                              NeuralNetwork, LayeredNeuralNetwork, NeuralNetworkElement, Link, Node,
-                                              IONode)
-
-class LayerConfigurationMapper (ClassMapper) :
-    cls  = LayerConfiguration
-    name = 'layer_configuration'
-
-    def columns (self) :
-        return (Column('id', Integer, primary_key=True),
-                Column('type', String))
-
-    def mapper_kw (self) :
-        return {'polymorphic_identity' : self.name,
-                'polymorphic_on' : self.table.c.type}
-
-class _BaseLayerConfigurationSubclassMapper (ClassMapper) :
-    __abstract__ = True
-
-    def columns (self) :
-        return (Column('id', Integer, ForeignKey('layer_configuration.id'), primary_key=True),)
-
-    def mapper_kw (self) :
-        return {'inherits' : self.classes['layer_configuration'],
-                'polymorphic_identity' : self.name}
-
-class DynamicLayerMapper (_BaseLayerConfigurationSubclassMapper) :
-    __abstract__ = False
-
-    cls  = DynamicLayer
-    name = 'dynamic_layer'
-
-class StaticLayerMapper (_BaseLayerConfigurationSubclassMapper) :
-    __abstract__ = False
-
-    cls  = StaticLayer
-    name = 'static_layer'
-
-    def columns (self) :
-        return super().columns() + (Column('size', Integer),)
-
-class StaticIOLayerMapper (_BaseLayerConfigurationSubclassMapper) :
-    __abstract__ = False
-
-    cls  = StaticIOLayer
-    name = 'static_io_layer'
-
-    def mapper_kw (self) :
-        relationship_table = Table('static_io_layer_seq_relationship',
-                                   self.metadata,
-                                   Column('static_io_layer_id', Integer, ForeignKey('static_io_layer.id')),
-                                   Column('seq_id', Integer, ForeignKey('seq.id')))
-
-        kw = super().mapper_kw()
-        kw['properties'] = {'seqs' : relationship(self.classes['seq'], secondary=relationship_table)}
-
-        return kw
+from nlplib.core.model.neural_network import NeuralNetwork, NeuralNetworkElement, Link, Node, IONode
 
 class NeuralNetworkMapper (ClassMapper) :
     cls  = NeuralNetwork
@@ -69,35 +13,13 @@ class NeuralNetworkMapper (ClassMapper) :
 
     def columns (self) :
         return (Column('id', Integer, primary_key=True),
-                Column('type', String),
                 Column('name', String, unique=True, nullable=False))
 
     def mapper_kw (self) :
         return {'properties' : {'elements' : relationship(self.classes['neural_network_element']),
                                 'links'    : relationship(self.classes['link']),
                                 'nodes'    : relationship(self.classes['node']),
-                                'io_nodes' : relationship(self.classes['io_node'])},
-                'polymorphic_identity' : self.name,
-                'polymorphic_on' : self.table.c.type}
-
-class LayeredNeuralNetworkMapper (ClassMapper) :
-    cls  = LayeredNeuralNetwork
-    name = 'layered_neural_network'
-
-    def columns (self) :
-        return (Column('id', Integer, ForeignKey('neural_network.id'), primary_key=True),)
-
-    def mapper_kw (self) :
-        relationship_table = Table('layered_neural_network_layer_configuration_relationship',
-                                   self.metadata,
-                                   Column('layered_neural_network_id', Integer,
-                                          ForeignKey('layered_neural_network.id')),
-                                   Column('layer_configuration_id', Integer, ForeignKey('layer_configuration.id')))
-
-        return {'inherits' : self.classes['neural_network'],
-                'polymorphic_identity' : self.name,
-                'properties' : {'layer_configurations' : relationship(self.classes['layer_configuration'],
-                                                                      secondary=relationship_table)}}
+                                'io_nodes' : relationship(self.classes['io_node'])}}
 
 class NeuralNetworkElementMapper (ClassMapper) :
     cls  = NeuralNetworkElement

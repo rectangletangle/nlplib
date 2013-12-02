@@ -1,7 +1,7 @@
 ''' This tests the models. '''
 
 
-from nlplib.core.model import Database, Word, NeuralNetwork, Link, Node, IONode, Seq, StaticIOLayer
+from nlplib.core.model import Database, Word, NeuralNetwork, Link, Node, IONode, Seq
 
 def _test_neural_network_model (ut) :
 
@@ -102,26 +102,9 @@ def _test_neural_network_links (ut) :
         ut.assert_equal(get_ids(nodes[5].input_nodes), [ids[3]])
         ut.assert_equal(nodes[5].output_nodes, [])
 
-def _test_neural_network_layer_configurations (ut) :
-
-    db = Database()
-
-    with db as session :
-        for cls, char in zip((Word, Seq, Word), 'abc') :
-            session.add(cls(char))
-
-    with db as session :
-        session.add(StaticIOLayer(session.access.all_seqs()))
-
-    with db as session :
-        static_io_layer = session._sqlalchemy_session.query(StaticIOLayer).one()
-
-        ut.assert_equal(static_io_layer.seqs, [Word('a'), Seq('b'), Word('c')])
-
 def __test__ (ut) :
     _test_neural_network_model(ut)
     _test_neural_network_links(ut)
-    _test_neural_network_layer_configurations(ut)
 
 if __name__ == '__main__' :
     from nlplib.general.unit_test import UnitTest

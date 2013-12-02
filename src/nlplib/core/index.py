@@ -1,10 +1,8 @@
 
 
-import random
-
 from nlplib.core.process.token import re_tokenize
+from nlplib.core.process import stem
 from nlplib.core.model import SessionDependent, Word, Gram, Index
-from nlplib.general.math import hyperbolic
 from nlplib.general.iter import windowed
 
 __all__ = ['AddIndexes', 'RemoveIndexes', 'Indexer']
@@ -23,25 +21,31 @@ class _EditIndexes (SessionDependent) :
         raise NotImplementedError
 
 class AddIndexes (_EditIndexes) :
-    # Allow for word lemmatization
-
-    stop_seqs = set()
-
-    def __init__ (self, session, document, max_gram=5) :
-        super().__init__(session, document)
-        self.max_gram = max_gram
+    ''' This will add an index for each word and gram in a document. Words and grams already in the database will have
+        their prevalence scores incremented accordingly. '''
 
     def __call__ (self) :
-        seqs_with_tokens_from_document = self.seqs_with_tokens(self.document, self.max_gram)
+        seqs_with_tokens_from_document = self._seqs_with_tokens(self.document)
 
-        not_yet_indexed = self.merge_with_seqs_in_db(seqs_with_tokens_from_document)
+        not_yet_indexed = self._merge_with_seqs_in_db(seqs_with_tokens_from_document)
 
-        self.add_indexes_to_db(self.make_indexes(self.document, not_yet_indexed))
+        indexes = self._make_indexes(self.document, not_yet_indexed)
 
-    def merge_with_seqs_in_db (self, seqs_with_tokens_from_document) :
-        seqs_from_document = (seq for seq, list_of_tokens in seqs_with_tokens_from_document)
+        self.session.add_many(indexes)
 
-        seqs_already_in_db = {str(seq) : seq for seq in self.session.access.matching(seqs_from_document)}
+    def _accumulate_seqs (self, seqs_with_tokens_from_document, seq, tokens) :
+        seq, list_of_tokens = seqs_with_tokens_from_document.setdefault(str(seq), (seq, []))
+        seq.prevalence += 1
+        list_of_tokens.append(tokens)
+
+    def _group_tokens_like_a_gram (self, tokens, min_size=1) :
+        for i in range(min_size, len(tokens) + 1) :
+            yield tokens[:i]
+
+    def _merge_with_seqs_in_db (self, seqs_with_tokens_from_document) :
+        strings_from_document = (str(seq) for seq, list_of_tokens in seqs_with_tokens_from_document)
+
+        seqs_already_in_db = {str(seq) : seq for seq in self.session.access.matching(strings_from_document)}
 
         for seq_from_document, list_of_tokens in seqs_with_tokens_from_document :
             try :
@@ -55,56 +59,20 @@ class AddIndexes (_EditIndexes) :
 
             yield (seq, list_of_tokens)
 
-    def is_stop_seq (self, seq) :
-        return seq in self.stop_seqs
-
-    def tokenize (self, string) :
-        return re_tokenize(string)
-
-    def chance (self, prevalence) :
-        # z==10, if prevalence < 10 : chance of keeping == 100%
-        return random.random() > hyperbolic(y=prevalence, z=10, base=2)
-
-    # todo : give a better name
-    def _accumulate (self, seqs, seq, tokens) :
-        seq, list_of_tokens = seqs.setdefault(str(seq), (seq, []))
-        seq.prevalence += 1
-        list_of_tokens.append(tokens)
-
-    # todo : give a better name
-    def _gramify (self, tokens, min_size=1) :
-        for i in range(min_size, len(tokens) + 1) :
-            yield tokens[:i]
-
-    def gram (self, tokens) :
-        gram_tuple = tuple(str(token) for token in tokens)
-        if not self.is_stop_seq(gram_tuple) :
-            return Gram(gram_tuple, prevalence=0)
-
-    def word (self, tokens) :
-        word_string = str(tokens[0])
-        if not self.is_stop_seq(word_string) :
-            return Word(word_string, prevalence=0)
-
-    def seq (self, tokens) :
-        if len(tokens) == 1 :
-            return self.word(tokens)
-        else :
-            return self.gram(tokens)
-
-    def seqs_with_tokens (self, document, max_gram) :
+    def _seqs_with_tokens (self, document) :
         seqs_with_tokens_from_document = {}
-        for window in windowed(self.tokenize(document), max_gram) :
-            for tokens in self._gramify(window) :
+
+        for window in windowed(self.tokenize(document), size=self.max_gram_length) :
+            for tokens in self._group_tokens_like_a_gram(window) :
                 try :
-                    self._accumulate(seqs_with_tokens_from_document, self.seq(tokens), tokens)
+                    self._accumulate_seqs(seqs_with_tokens_from_document, self.seq(tokens), tokens)
                 except AttributeError :
                     # <self.seq(tokens)> likely returned None, which means we hit a stop sequence (stop word).
                     pass
 
         return list(seqs_with_tokens_from_document.values())
 
-    def make_indexes (self, document, not_yet_indexed) :
+    def _make_indexes (self, document, not_yet_indexed) :
         for seq, list_of_tokens in not_yet_indexed :
             for tokens in list_of_tokens :
                 first_token = tokens[0]
@@ -117,10 +85,48 @@ class AddIndexes (_EditIndexes) :
                             first_token.first_character_index,
                             last_token.last_character_index)
 
-    def add_indexes_to_db (self, indexes) :
-        self.session.add_many(indexes)
+    ''' Below are some methods and class attributes that inheriting classes may wish to override. '''
+
+    ''' This is the maximum length (in words) of the n-grams that will be indexed. '''
+    max_gram_length = 5
+
+    ''' A set of strings and gram tuples which will not be indexed. '''
+    stop_seqs = set()
+
+    def is_stop_seq (self, seq) :
+        return seq in self.stop_seqs
+
+    def tokenize (self, string) :
+        ''' This is a proxy to the specific tokenization algorithm used to split the document into tokens (think
+            words). '''
+
+        return re_tokenize(string)
+
+    def stem (self, string) :
+        ''' This is a proxy to the specific stemming/lemmatisation algorithm used to map multiple forms of a word,
+            e.g., diffrent capitlization, whitespace, or inflections, to a single form. '''
+
+        return stem.clean(string)
+
+    def gram (self, tokens) :
+        gram_tuple = tuple(self.stem(str(token)) for token in tokens)
+        if not self.is_stop_seq(gram_tuple) :
+            return Gram(gram_tuple, prevalence=0)
+
+    def word (self, tokens) :
+        word_string = self.stem(str(tokens[0]))
+        if not self.is_stop_seq(word_string) :
+            return Word(word_string, prevalence=0)
+
+    def seq (self, tokens) :
+        if len(tokens) == 1 :
+            return self.word(tokens)
+        else :
+            return self.gram(tokens)
 
 class RemoveIndexes (_EditIndexes) :
+    ''' This removes the indexes for a document; this undoes <AddIndexes>. '''
+
     def __call__ (self) :
         for index, seq in self.session.access.indexes(self.document) :
             seq.prevalence -= 1
@@ -131,8 +137,8 @@ class RemoveIndexes (_EditIndexes) :
             self.session.remove(index)
 
 class Indexer (SessionDependent) :
-    ''' The indexer is used to construct and index of documents within the database. This allows for rapid word and
-        gram lookups. '''
+    ''' The indexer is used to construct a textual index of documents within the database. This allows for rapid word
+        and n-gram (groups of words) lookups. '''
 
     def update (self, document) :
         ''' This updates the indexes for a document. '''
@@ -140,15 +146,10 @@ class Indexer (SessionDependent) :
         self.remove(document)
         self.add(document)
 
-    def add (self, document, *args, **kw) :
-        ''' This will add an index for each word and gram in a document. Words and grams already in the database will
-            have their prevalence scores incremented accordingly.  '''
-
-        AddIndexes(self.session, document, *args, **kw)()
+    def add (self, document) :
+        AddIndexes(self.session, document)()
 
     def remove (self, document) :
-        ''' This removes the indexes for a document. This undoes <add>. '''
-
         RemoveIndexes(self.session, document)()
 
 def __test__ (ut) :
@@ -162,7 +163,7 @@ def __test__ (ut) :
                'functioning GNU system made useful by the GNU corelibs, shell utilities and vital system components '
                'comprising a full OS as defined by POSIX.')]
 
-    max_gram = 3
+    max_gram_length = 3
 
     db = Database()
 
@@ -172,15 +173,16 @@ def __test__ (ut) :
 
     with db as session :
         for document in session.access.all_documents() :
-            add_indexes = AddIndexes(session, document, max_gram=max_gram)
+            add_indexes = AddIndexes(session, document)
 
             # This is done in case the default <AddIndexes.tokenize> implementation is changed from <re_tokenize>.
             add_indexes.tokenize = re_tokenize
+            add_indexes.max_gram_length = max_gram_length
 
             add_indexes()
 
     with db as session :
-        ut.assert_equal(max(len(tuple(gram)) for gram in session.access.all_grams()), max_gram)
+        ut.assert_equal(max(len(tuple(gram)) for gram in session.access.all_grams()), max_gram_length)
         ut.assert_equal(len(session.access.all_indexes()), 210)
 
         interject = documents_containing(session.access.concordance('interject'))
@@ -191,12 +193,13 @@ def __test__ (ut) :
         ut.assert_equal((str(interject_document), str(interject_word), int(interject_index)),
                         (corpus[0], 'interject', 5))
 
-        gnu = documents_containing(session.access.concordance('GNU'))
-        ut.assert_equal(session.access.word('GNU').prevalence, 4)
+        gnu = documents_containing(session.access.concordance('gnu'))
+        ut.assert_equal(session.access.word('gnu').prevalence, 4)
 
         # Sets are used because order is not guaranteed.
         ut.assert_equal({str(document) for document in gnu.keys()},
                         set(corpus))
+
         ut.assert_equal({(str(word), int(index)) for indexes in gnu.values() for index, word in indexes},
                         {('gnu', 17), ('gnu', 23), ('gnu', 19), ('gnu', 30)})
 

@@ -1,7 +1,8 @@
+''' This module outlines how natural language related models are mapped to their respective SQLAlchemy tables. '''
 
 
 from sqlalchemy.orm import relationship, reconstructor
-from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, UniqueConstraint
 
 from nlplib.core.model.backend.sqlalchemy.map.base import ClassMapper
 from nlplib.core.model.natural_language import Document, Seq, Gram, Word, Index
@@ -12,7 +13,7 @@ class DocumentMapper (ClassMapper) :
 
     def columns (self) :
         return (Column('id', Integer, primary_key=True),
-                Column('raw', Text),
+                Column('string', Text),
                 Column('length', Integer),
                 Column('word_count', Integer),
                 Column('title', Text),
@@ -31,9 +32,9 @@ class SeqMapper (ClassMapper) :
     def columns (self) :
         return (Column('id', Integer, primary_key=True),
                 Column('type', String),
-                Column('raw', String),
-                Column('clean', String),
-                Column('prevalence', Integer))
+                Column('string', String, nullable=False),
+                Column('prevalence', Integer),
+                UniqueConstraint('type', 'string'))
 
     def mapper_kw (self) :
         return {'properties' : {'indexes' : relationship(self.classes['index'])},

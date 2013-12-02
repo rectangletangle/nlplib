@@ -3,16 +3,15 @@
 from functools import total_ordering
 
 from nlplib.core.model.base import Model
-from nlplib.core.process import process
 from nlplib.general import pretty_truncate, literal_representation
 
 class Document (Model) :
     ''' A class for textual documents. '''
 
-    def __init__ (self, raw, indexes=(), word_count=None, title=None, url=None, created_on=None) :
-        self.raw     = raw
+    def __init__ (self, string, indexes=(), word_count=None, title=None, url=None, created_on=None) :
+        self.string  = string
         self.indexes = list(indexes)
-        self.length  = len(self.raw)
+        self.length  = len(self.string)
 
         self.word_count = word_count
         self.title      = title
@@ -20,13 +19,13 @@ class Document (Model) :
         self.created_on = created_on
 
     def __repr__ (self) :
-        return super().__repr__(pretty_truncate(self.raw.replace('\n', ' '), 42))
+        return super().__repr__(pretty_truncate(self.string.replace('\n', ' '), 42))
 
     def __str__ (self) :
-        return self.raw
+        return self.string
 
     def __getitem__ (self, index) :
-        return self.raw[index]
+        return self.string[index]
 
     def __len__ (self) :
         return self.length
@@ -36,28 +35,22 @@ class Seq (Model) :
     ''' This acts as a sequence of characters, similar to a string. The word and gram classes are built on top of
         this. '''
 
-    def __init__ (self, raw, prevalence=None, indexes=(), clean=None) :
-        self.raw = raw
-
-        if clean is None :
-            self.clean = process(self.raw)
-        else :
-            self.clean = clean
-
+    def __init__ (self, string, prevalence=None, indexes=()) :
+        self.string     = string
         self.prevalence = prevalence
         self.indexes    = list(indexes)
 
     def __repr__ (self) :
-        return literal_representation(self, self.clean) # Sequence objects can be represented as literal Python.
+        return literal_representation(self, self.string) # Sequence objects can be represented as literal Python.
 
     def __str__ (self) :
-        return self.clean
+        return self.string
 
     def __getitem__ (self, index) :
-        return self.clean[index]
+        return self.string[index]
 
     def __len__ (self) :
-        return len(self.clean)
+        return len(self.string)
 
     def __add__ (self, other) :
         if isinstance(other, Gram) :
@@ -67,35 +60,35 @@ class Seq (Model) :
 
     def __eq__ (self, other) :
         try :
-            return self.clean == other.clean
+            return self.string == other.string
         except AttributeError :
             return False
 
     def __lt__ (self, other) :
         try :
-            return self.clean < other.clean
+            return self.string < other.string
         except AttributeError :
             return True
 
     def __hash__ (self) :
-        return hash(self.clean)
+        return hash(self.string)
 
 class Gram (Seq) :
     ''' This class is used for representing n-grams of word strings. '''
 
-    def __init__ (self, raw, prevalence=None, indexes=()) :
-        if isinstance(raw, str) :
-            string = ' '.join(raw.split()) # This standardizes the whitespace.
-        else :
-            string = ' '.join(str(token) for token in raw)
-            raw = string
+    def __init__ (self, gram_tuple_or_string, prevalence=None, indexes=()) :
 
-        super().__init__(raw=raw, prevalence=prevalence, indexes=indexes, clean=process(string))
+        if isinstance(gram_tuple_or_string, str) :
+            string = ' '.join(gram_tuple_or_string.split()) # This standardizes the whitespace.
+        else :
+            string = ' '.join(str(token) for token in gram_tuple_or_string)
+
+        super().__init__(string, prevalence=prevalence, indexes=indexes)
 
         self._make_words()
 
     def _make_words (self) :
-        self.words = tuple(self.clean.split())
+        self.words = tuple(self.string.split())
 
     def __iter__ (self) :
         return iter(self.words)
@@ -120,8 +113,7 @@ class Gram (Seq) :
 class Word (Seq) :
     ''' This class is used for representing words. Currently homographic words are not supported. '''
 
-    def __init__ (self, raw, prevalence=None, indexes=()) :
-        super().__init__(raw=raw, prevalence=prevalence, indexes=indexes, clean=None)
+    pass
 
 class Index (Model) :
     ''' This class is used for indexing sequences (words or n-grams) in a document. '''

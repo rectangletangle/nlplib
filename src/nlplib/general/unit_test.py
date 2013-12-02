@@ -19,7 +19,6 @@ class UnitTest :
         self._logging_function = _logging_function(log)
 
     def _assert (self, value) :
-
         # The actual assert statement isn't used, because it's disabled in "optimized" Python files (.pyo).
         if not value :
             raise UnitTestFailure
@@ -41,9 +40,6 @@ class UnitTest :
                                                                              value_1=value_1,
                                                                              comparison=str(comparison).lower()))
         self._assert(comparison)
-
-    def attrs (self, object) :
-        return self.log({name : getattr(object, name) for name in sorted(dir(object))})
 
 def _import_everything_from (pkg) :
     for loader, name, is_pkg in pkgutil.walk_packages(pkg.__path__, onerror=lambda module : None) :

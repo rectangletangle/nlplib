@@ -1,7 +1,6 @@
 
 from nlplib.core.model import Document, Seq, Gram, Word, Index, NeuralNetwork, Node, IONode, Link
 from nlplib.core.model.backend.abstract import access as abstract
-from nlplib.core.process import process
 from nlplib.general.iter import chunked
 
 __all__ = ['Access']
@@ -36,14 +35,14 @@ class Access (abstract.Access) :
 
     def gram (self, gram_string_or_tuple) :
         session = self.session._sqlalchemy_session
-        return session.query(Gram).filter_by(clean=str(Gram(gram_string_or_tuple))).first()
+        return session.query(Gram).filter_by(string=str(Gram(gram_string_or_tuple))).first()
 
     def word (self, word_string) :
-        return self.session._sqlalchemy_session.query(Word).filter_by(clean=process(word_string)).first()
+        return self.session._sqlalchemy_session.query(Word).filter_by(string=word_string).first()
 
     def concordance (self, string) :
         session = self.session._sqlalchemy_session
-        concordance = session.query(Document, Seq, Index).join(Index).join(Seq).filter_by(clean=process(string)).all()
+        concordance = session.query(Document, Seq, Index).join(Index).join(Seq).filter_by(string=string).all()
 
         return [(document, index, seq) for document, seq, index in concordance]
 
@@ -52,8 +51,8 @@ class Access (abstract.Access) :
         return session.query(Index, Seq).filter(Index.document_id == document.id).join(Seq).all()
 
     def matching (self, strings, cls=Seq, _chunk_size=200) :
-        for chunked_strings in chunked((process(string) for string in strings), _chunk_size) :
-            for match in self.session._sqlalchemy_session.query(cls).filter(cls.clean.in_(chunked_strings)).all() :
+        for chunked_strings in chunked(strings, _chunk_size) :
+            for match in self.session._sqlalchemy_session.query(cls).filter(cls.string.in_(chunked_strings)).all() :
                 yield match
 
     def neural_network (self, name) :

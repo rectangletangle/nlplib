@@ -2,6 +2,8 @@
     url : http://www.sqlalchemy.org '''
 
 
+import sqlalchemy.exc
+
 from contextlib import contextmanager
 
 from sqlalchemy.orm import sessionmaker
@@ -10,6 +12,7 @@ from sqlalchemy import create_engine
 from nlplib.core.model.backend.sqlalchemy.map import default_mapper
 from nlplib.core.model.backend.sqlalchemy.access import Access
 from nlplib.core.model.backend import abstract
+from nlplib.core.model.exc import IntegrityError, StorageError
 
 __all__ = ['Session', 'Database']
 
@@ -20,10 +23,13 @@ class Session (abstract.Session) :
         self.access = Access(self)
 
     def add (self, object) :
-        self._sqlalchemy_session.add(object)
-        self._sqlalchemy_session.flush((object,)) # todo : make lazy
-
-        return object
+        try :
+            self._sqlalchemy_session.add(object)
+            self._sqlalchemy_session.flush((object,)) # todo : make lazy
+        except sqlalchemy.exc.IntegrityError as exc :
+            raise IntegrityError(str(exc))
+        else :
+            return object
 
     def _as_dict (self, table, object) :
         return {attr_name : getattr(object, attr_name) for attr_name in table.c.keys()}
@@ -58,9 +64,9 @@ class Database (abstract.Database) :
         try :
             yield Session(sqlalchemy_session)
             sqlalchemy_session.commit()
-        except :
+        except sqlalchemy.exc.SQLAlchemyError as exc :
             sqlalchemy_session.rollback()
-            raise
+            raise StorageError(str(exc))
         finally :
             sqlalchemy_session.close()
 

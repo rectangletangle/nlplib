@@ -1,3 +1,4 @@
+''' This module outlines how neural network related models are mapped to their respective SQLAlchemy tables. '''
 
 
 from sqlalchemy.orm import relationship

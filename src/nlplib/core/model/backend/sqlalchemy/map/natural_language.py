@@ -1,7 +1,7 @@
 ''' This module outlines how natural language related models are mapped to their respective SQLAlchemy tables. '''
 
 
-from sqlalchemy.orm import relationship, reconstructor
+from sqlalchemy.orm import relationship, reconstructor, backref
 from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, UniqueConstraint
 
 from nlplib.core.model.backend.sqlalchemy.map.base import ClassMapper
@@ -83,4 +83,34 @@ class IndexMapper (ClassMapper) :
                 Column('first_character', Integer),
                 Column('last_character', Integer),
                 Column('tokenization_algorithm', String))
+
+class TrieNode :
+    def __init__ (self, seq, prevalence=None, parent=None) :
+        self.seq_id = seq.id
+
+        self.prevalence = prevalence
+
+        try :
+            self.parent_id = parent.id
+        except AttributeError :
+            self.parent_id = None
+
+    def add_child (self, trie_node) :
+        self.children.append(trie_node)
+        return trie_node
+
+class TrieNodeMapper (ClassMapper) :
+    cls  = TrieNode
+    name = 'trie_node'
+
+    def columns (self) :
+        return (Column('id', Integer, primary_key=True),
+                Column('seq_id', Integer, ForeignKey('seq.id')),
+                Column('prevalence', Integer),
+                Column('parent_id', Integer, ForeignKey('trie_node.id')))
+
+    def mapper_kw (self) :
+        return {'properties' : {'seq'      : relationship(self.classes['seq'], backref='trie_nodes'),
+                                'children' : relationship(TrieNode,
+                                                          backref=backref('parent', remote_side=[self.table.c.id]))}}
 

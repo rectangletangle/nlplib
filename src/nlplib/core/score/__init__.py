@@ -131,29 +131,29 @@ def rank (*args, **kw) :
         yield scored.object
 
 def __test__ (ut) :
-    from nlplib.core.score.metric import distance, prevalence
+    from nlplib.core.score.metric import distance, count
     from nlplib.core.model import Word
 
     word = Word('the')
 
-    words = [Word('their', prevalence=100),
-             Word('platypus', prevalence=60),
-             Word('there', prevalence=10),
-             Word('them', prevalence=4),
-             Word('th', prevalence=2),
-             Word('they', prevalence=1),
-             Word('though', prevalence=1)]
+    words = [Word('their', count=100),
+             Word('platypus', count=60),
+             Word('there', count=10),
+             Word('them', count=4),
+             Word('th', count=2),
+             Word('they', count=1),
+             Word('though', count=1)]
 
-    def test (prevalence_weight, levenshtein_distance_weight) :
+    def test (count_weight, levenshtein_distance_weight) :
 
-        weighted_prevalence = weighted(lambda object, similar : prevalence(similar),
-                                       weight=prevalence_weight)
+        weighted_count = weighted(lambda object, similar : count(similar),
+                                  weight=count_weight)
 
         weighted_levenshtein_distance = weighted(distance.levenshtein,
                                                  weight=levenshtein_distance_weight,
                                                  low_is_better=True)
 
-        args = ([weighted_levenshtein_distance, weighted_prevalence], word, words)
+        args = ([weighted_levenshtein_distance, weighted_count], word, words)
 
         return (score(*args), rank(*args))
 
@@ -166,7 +166,7 @@ def __test__ (ut) :
     # Without scoring functions, this essentially just sorts the word objects alphabetically.
     ut.assert_equal(list(rank([], word, words)), sorted(words))
 
-    scored, ranked = test(prevalence_weight=1, levenshtein_distance_weight=0)
+    scored, ranked = test(count_weight=1, levenshtein_distance_weight=0)
     ut.assert_equal(list(scored),
                     [Score(Word('their'), score=1.0), Score(Word('platypus'), score=0.5959595959595959),
                      Score(Word('there'), score=0.09090909090909091), Score(Word('them'), score=0.030303030303030304),
@@ -174,7 +174,7 @@ def __test__ (ut) :
                      Score(Word('they'), score=0.0)])
     ut.assert_equal(list(ranked), words)
 
-    scored, ranked = test(prevalence_weight=0, levenshtein_distance_weight=1)
+    scored, ranked = test(count_weight=0, levenshtein_distance_weight=1)
     ut.assert_equal(list(scored),
                     [Score(Word('they'), score=1.0), Score(Word('them'), score=1.0), Score(Word('th'), score=1.0),
                      Score(Word('there'), score=0.8333333333333334), Score(Word('their'), score=0.8333333333333334),

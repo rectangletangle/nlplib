@@ -1,7 +1,7 @@
 
 
 from nlplib.core.process.token import split
-from nlplib.core.model import SessionDependent
+from nlplib.core.model import SessionDependent, Seq
 
 __all__ = ['Access', 'abstract_test']
 
@@ -50,8 +50,8 @@ class Access (SessionDependent) :
 
         raise NotImplementedError
 
-    def most_prevalent (self, cls=None, top=1000) :
-        ''' This returns most prevalent (commonly encountered) objects. '''
+    def most_common (self, cls=None, top=1000) :
+        ''' This returns most common objects based on their count. '''
 
         raise NotImplementedError
 
@@ -67,16 +67,7 @@ class Access (SessionDependent) :
 
         raise NotImplementedError
 
-    def concordance (self, string) :
-
-        raise NotImplementedError
-
-    def indexes (self, document) :
-        ''' This returns all of the indexes referencing the document. '''
-
-        raise NotImplementedError
-
-    def matching (self, strings, cls=None, _chunk_size=200) :
+    def matching (self, strings, cls=Seq, _chunk_size=200) :
         ''' This returns sequences (grams and words) that match the given list of strings.
 
             Note : This method is typically implemented using the SQL <IN> operator. Some database systems have
@@ -107,9 +98,9 @@ def abstract_test (ut, db_cls) :
     db = db_cls()
 
     with db as session :
-        for prevalence, char in enumerate(chars, 1) :
+        for count, char in enumerate(chars, 1) :
             for cls in (Seq, Gram, Word) :
-                session.add(cls(char, prevalence=prevalence))
+                session.add(cls(char, count=count))
 
     def mock (classes, chars) :
         return sorted(cls(char) for char in chars for cls in classes)
@@ -124,10 +115,10 @@ def abstract_test (ut, db_cls) :
         ut.assert_equal(sorted(session.access.vocabulary()),
                         sorted(session.access.all_words()))
 
-        ut.assert_equal(sorted(session.access.most_prevalent(cls=Seq, top=3)),
+        ut.assert_equal(sorted(session.access.most_common(cls=Seq, top=3)),
                         mock((Seq, Gram, Word), 'c'))
 
-        ut.assert_equal(sorted(session.access.most_prevalent(cls=Word, top=2)),
+        ut.assert_equal(sorted(session.access.most_common(cls=Word, top=2)),
                         mock((Word,), 'bc'))
 
         ut.assert_equal(session.access.word('a'), Word('a'))

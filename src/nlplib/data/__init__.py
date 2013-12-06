@@ -17,7 +17,7 @@ def __demo__ () :
 
     with builtin_db() as session :
         print(len(session.access.all_documents()))
-        for word in session.access.most_prevalent(Word, top=10) :
+        for word in session.access.most_common(Word, top=10) :
             print(repr(word))
 
 if __name__ == '__main__' :

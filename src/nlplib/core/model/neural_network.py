@@ -18,15 +18,16 @@ class NeuralNetwork (Model) :
 
 class NeuralNetworkElement (Model) :
     def __init__ (self, neural_network) :
-        self.neural_network_id = neural_network.id
+        self.neural_network = neural_network
 
 class Link (NeuralNetworkElement) :
     ''' A class which links together neural network nodes. '''
 
     def __init__ (self, neural_network, input_node, output_node, strength=1.0) :
         super().__init__(neural_network)
-        self.input_node_id  = input_node.id
-        self.output_node_id = output_node.id
+
+        self.input_node  = input_node
+        self.output_node = output_node
 
         self.strength = strength
 
@@ -48,5 +49,6 @@ class IONode (Node) :
 
     def __init__ (self, neural_network, seq, *args, **kw) :
         super().__init__(neural_network, *args, **kw)
-        self.seq_id = seq.id
+
+        self.seq = seq
 

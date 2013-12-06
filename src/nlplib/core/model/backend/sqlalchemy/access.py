@@ -30,8 +30,8 @@ class Access (abstract.Access) :
     def specific (self, cls, id) :
         return self.session._sqlalchemy_session.query(cls).get(id)
 
-    def most_prevalent (self, cls=Seq, top=1000) :
-        return self.session._sqlalchemy_session.query(cls).order_by(cls.prevalence.desc()).slice(0, top).all()
+    def most_common (self, cls=Seq, top=1000) :
+        return self.session._sqlalchemy_session.query(cls).order_by(cls.count.desc()).slice(0, top).all()
 
     def gram (self, gram_string_or_tuple) :
         session = self.session._sqlalchemy_session
@@ -39,16 +39,6 @@ class Access (abstract.Access) :
 
     def word (self, word_string) :
         return self.session._sqlalchemy_session.query(Word).filter_by(string=word_string).first()
-
-    def concordance (self, string) :
-        session = self.session._sqlalchemy_session
-        concordance = session.query(Document, Seq, Index).join(Index).join(Seq).filter_by(string=string).all()
-
-        return [(document, index, seq) for document, seq, index in concordance]
-
-    def indexes (self, document) :
-        session = self.session._sqlalchemy_session
-        return session.query(Index, Seq).filter(Index.document_id == document.id).join(Seq).all()
 
     def matching (self, strings, cls=Seq, _chunk_size=200) :
         for chunked_strings in chunked(strings, _chunk_size) :
@@ -60,29 +50,26 @@ class Access (abstract.Access) :
 
     def nodes_in_layer (self, neural_network, layer_index) :
         session = self.session._sqlalchemy_session
-        return session.query(Node).filter_by(neural_network_id=neural_network.id, layer_index=layer_index).all()
+        return session.query(Node).filter_by(neural_network=neural_network, layer_index=layer_index).all()
 
     def nodes_for_seqs (self, neural_network, seqs, layer_index=None) :
         # todo : This probably could be made more efficient using the SQL <in> operator.
-
-        neural_network_id = neural_network.id
 
         query_nodes = self.session._sqlalchemy_session.query(IONode).filter_by
 
         if layer_index is None :
             for seq in seqs :
-                for node in query_nodes(neural_network_id=neural_network_id, seq_id=seq.id).all() :
+                for node in query_nodes(neural_network=neural_network, seq=seq).all() :
                     yield node
         else :
             for seq in seqs :
-                for node in query_nodes(neural_network_id=neural_network_id, layer_index=layer_index,
-                                        seq_id=seq.id).all() :
+                for node in query_nodes(neural_network=neural_network, layer_index=layer_index, seq=seq).all() :
                     yield node
 
     def link (self, neural_network, input_node, output_node) :
-        return self.session._sqlalchemy_session.query(Link).filter_by(neural_network_id=neural_network.id,
-                                                                      input_node_id=input_node.id,
-                                                                      output_node_id=output_node.id).first()
+        return self.session._sqlalchemy_session.query(Link).filter_by(neural_network=neural_network,
+                                                                      input_node=input_node,
+                                                                      output_node=output_node).first()
 
 def __test__ (ut) :
     from nlplib.core.model.backend.abstract.access import abstract_test

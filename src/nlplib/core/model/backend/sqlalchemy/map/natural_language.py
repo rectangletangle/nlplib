@@ -2,7 +2,7 @@
 
 
 from sqlalchemy.orm import relationship, reconstructor, backref
-from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, UniqueConstraint, Table
 
 from nlplib.core.model.backend.sqlalchemy.map.base import ClassMapper
 from nlplib.core.model.natural_language import Document, Seq, Gram, Word, Index
@@ -23,7 +23,12 @@ class DocumentMapper (ClassMapper) :
                 # img_urls = Column(String)
 
     def mapper_kw (self) :
-        return {'properties' : {'indexes' : relationship(self.classes['index'])}}
+        association = Table('document_seq_association',
+                            self.metadata,
+                            Column('_document_id', Integer, ForeignKey('document.id')),
+                            Column('_seq_id', Integer, ForeignKey('seq.id')))
+
+        return {'properties' : {'seqs' : relationship(self.classes['seq'], secondary=association)}}
 
 class SeqMapper (ClassMapper) :
     cls  = Seq
@@ -33,7 +38,7 @@ class SeqMapper (ClassMapper) :
         return (Column('id', Integer, primary_key=True),
                 Column('type', String),
                 Column('string', String, nullable=False),
-                Column('prevalence', Integer),
+                Column('count', Integer),
                 UniqueConstraint('type', 'string'))
 
     def mapper_kw (self) :
@@ -55,7 +60,7 @@ class GramMapper (ClassMapper) :
     def map (self) :
         # This makes sure that SQLAlchemy creates a <gram.words> attribute when a gram object is being built (__init__
         # isn't called).
-        reconstructor(self.cls._make_words)
+        reconstructor(self.cls._make_seqs)
 
         return super().map()
 
@@ -76,41 +81,17 @@ class IndexMapper (ClassMapper) :
 
     def columns (self) :
         return (Column('id', Integer, primary_key=True),
-                Column('document_id', Integer, ForeignKey('document.id'), nullable=False),
-                Column('seq_id', Integer, ForeignKey('seq.id'), nullable=False),
                 Column('first_token', Integer),
                 Column('last_token', Integer),
                 Column('first_character', Integer),
                 Column('last_character', Integer),
-                Column('tokenization_algorithm', String))
+                Column('tokenization_algorithm', String),
 
-class TrieNode :
-    def __init__ (self, seq, prevalence=None, parent=None) :
-        self.seq_id = seq.id
-
-        self.prevalence = prevalence
-
-        try :
-            self.parent_id = parent.id
-        except AttributeError :
-            self.parent_id = None
-
-    def add_child (self, trie_node) :
-        self.children.append(trie_node)
-        return trie_node
-
-class TrieNodeMapper (ClassMapper) :
-    cls  = TrieNode
-    name = 'trie_node'
-
-    def columns (self) :
-        return (Column('id', Integer, primary_key=True),
-                Column('seq_id', Integer, ForeignKey('seq.id')),
-                Column('prevalence', Integer),
-                Column('parent_id', Integer, ForeignKey('trie_node.id')))
+                Column('_document_id', Integer, ForeignKey('document.id'), nullable=False),
+                Column('_seq_id', Integer, ForeignKey('seq.id'), nullable=False))
 
     def mapper_kw (self) :
-        return {'properties' : {'seq'      : relationship(self.classes['seq'], backref='trie_nodes'),
-                                'children' : relationship(TrieNode,
-                                                          backref=backref('parent', remote_side=[self.table.c.id]))}}
+        return {'properties' : {'document' : relationship(self.classes['document'])}}
+    # 'seq'      : relationship(self.classes['seq'], backref='indexes')}
+
 

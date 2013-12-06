@@ -8,10 +8,10 @@ from nlplib.general import pretty_truncate, literal_representation
 class Document (Model) :
     ''' A class for textual documents. '''
 
-    def __init__ (self, string, indexes=(), word_count=None, title=None, url=None, created_on=None) :
-        self.string  = string
-        self.indexes = list(indexes)
-        self.length  = len(self.string)
+    def __init__ (self, string, seqs=(), word_count=None, title=None, url=None, created_on=None) :
+        self.string = string
+        self.seqs   = list(seqs)
+        self.length = len(self.string)
 
         self.word_count = word_count
         self.title      = title
@@ -35,10 +35,10 @@ class Seq (Model) :
     ''' This acts as a sequence of characters, similar to a string. The word and gram classes are built on top of
         this. '''
 
-    def __init__ (self, string, prevalence=None, indexes=()) :
-        self.string     = string
-        self.prevalence = prevalence
-        self.indexes    = list(indexes)
+    def __init__ (self, string, count=None, indexes=()) :
+        self.string  = string
+        self.count   = count
+        self.indexes = list(indexes)
 
     def __repr__ (self) :
         return literal_representation(self, self.string) # Sequence objects can be represented as literal Python.
@@ -76,31 +76,31 @@ class Seq (Model) :
 class Gram (Seq) :
     ''' This class is used for representing n-grams of word strings. '''
 
-    def __init__ (self, gram_tuple_or_string, prevalence=None, indexes=()) :
+    def __init__ (self, gram_tuple_or_string, *args, **kw) :
 
         if isinstance(gram_tuple_or_string, str) :
             string = ' '.join(gram_tuple_or_string.split()) # This standardizes the whitespace.
         else :
             string = ' '.join(str(token) for token in gram_tuple_or_string)
 
-        super().__init__(string, prevalence=prevalence, indexes=indexes)
+        super().__init__(string, *args, **kw)
 
-        self._make_words()
+        self._make_seqs()
 
-    def _make_words (self) :
-        self.words = tuple(self.string.split())
+    def _make_seqs (self) :
+        self.seqs = tuple(self.string.split())
 
     def __iter__ (self) :
-        return iter(self.words)
+        return iter(self.seqs)
 
     def __len__ (self) :
-        return len(self.words)
+        return len(self.seqs)
 
     def __getitem__ (self, index) :
         if isinstance(index, slice) :
-            return Gram(self.words[index])
+            return Gram(self.seqs[index])
         else :
-            return self.words[index]
+            return self.seqs[index]
 
     def __add__ (self, other) :
         if isinstance(other, Gram) :
@@ -108,7 +108,7 @@ class Gram (Seq) :
         else :
             other = (other,)
 
-        return Gram(self.words + other)
+        return Gram(self.seqs + other)
 
 class Word (Seq) :
     ''' This class is used for representing words. Currently homographic words are not supported. '''
@@ -118,11 +118,10 @@ class Word (Seq) :
 class Index (Model) :
     ''' This class is used for indexing sequences (words or n-grams) in a document. '''
 
-    def __init__ (self, document, seq, first_token_index, last_token_index, first_character_index,
+    def __init__ (self, document, first_token_index, last_token_index, first_character_index,
                   last_character_index, tokenization_algorithm=None) :
 
-        self.document_id = document.id
-        self.seq_id      = seq.id
+        self.document = document
 
         ''' Token indexes are the indexes of the sequence, if the document were to be represented as a list of tokens.
 
@@ -156,5 +155,5 @@ class Index (Model) :
         return self.last_token - self.first_token
 
     def __repr__ (self) :
-        return super().__repr__(self.first_token)
+        return super().__repr__(self.document, self.first_token)
 

@@ -25,26 +25,20 @@ class Session (abstract.Session) :
     def add (self, object) :
         try :
             self._sqlalchemy_session.add(object)
-            self._sqlalchemy_session.flush((object,)) # todo : make lazy
         except sqlalchemy.exc.IntegrityError as exc :
             raise IntegrityError(str(exc))
         else :
             return object
 
-    def _as_dict (self, table, object) :
-        return {attr_name : getattr(object, attr_name) for attr_name in table.c.keys()}
-
     def add_many (self, objects) :
         objects = list(objects)
 
         try :
-            table = default_mapper.classes_with_tables[objects[0].__class__]
-        except IndexError :
-            pass
+            self._sqlalchemy_session.add_all(objects)
+        except sqlalchemy.exc.IntegrityError as exc :
+            raise IntegrityError(str(exc))
         else :
-            self._sqlalchemy_session.execute(table.insert(), [self._as_dict(table, object) for object in objects])
-
-        return objects
+            return objects
 
     def remove (self, object) :
         self._sqlalchemy_session.delete(object)

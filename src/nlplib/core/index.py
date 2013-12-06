@@ -1,11 +1,9 @@
 
 
-from nlplib.core.process.token import re_tokenize
-from nlplib.core.process import stem
-from nlplib.core.model import SessionDependent, Word, Gram, Index
-from nlplib.general.iter import windowed
+from nlplib.core.process.parse import Parse
+from nlplib.core.model import SessionDependent
 
-__all__ = ['AddIndexes', 'RemoveIndexes', 'Indexer']
+__all__ = ['AddIndexes', 'RemoveIndexes', 'Indexed']
 
 class _EditIndexes (SessionDependent) :
     ''' A base class for classes which edit a document's indexes. '''
@@ -22,123 +20,58 @@ class _EditIndexes (SessionDependent) :
 
 class AddIndexes (_EditIndexes) :
     ''' This will add an index for each word and gram in a document. Words and grams already in the database will have
-        their prevalence scores incremented accordingly. '''
+        their count incremented accordingly. '''
+
+    def __init__ (self, session, document, *args, **kw) :
+        super().__init__(session, document)
+        self.parser = Parse(self.document, *args, **kw)
 
     def __call__ (self) :
-        seqs_with_tokens_from_document = self._seqs_with_tokens(self.document)
+        seqs_from_document = list(self.parser())
 
-        not_yet_indexed = self._merge_with_seqs_in_db(seqs_with_tokens_from_document)
+        seqs = self._merge_with_seqs_in_db(seqs_from_document)
 
-        indexes = self._make_indexes(self.document, not_yet_indexed)
+        self.document.seqs.extend(seqs)
 
-        self.session.add_many(indexes)
+    def _merge_with_seqs_in_db (self, seqs_from_document) :
+        strings_from_document = (str(seq) for seq in seqs_from_document)
 
-    def _accumulate_seqs (self, seqs_with_tokens_from_document, seq, tokens) :
-        seq, list_of_tokens = seqs_with_tokens_from_document.setdefault(str(seq), (seq, []))
-        seq.prevalence += 1
-        list_of_tokens.append(tokens)
+        seqs_already_in_db = {(seq.type, str(seq)) : seq
+                              for seq in self.session.access.matching(strings_from_document)}
 
-    def _group_tokens_like_a_gram (self, tokens, min_size=1) :
-        for i in range(min_size, len(tokens) + 1) :
-            yield tokens[:i]
-
-    def _merge_with_seqs_in_db (self, seqs_with_tokens_from_document) :
-        strings_from_document = (str(seq) for seq, list_of_tokens in seqs_with_tokens_from_document)
-
-        seqs_already_in_db = {str(seq) : seq for seq in self.session.access.matching(strings_from_document)}
-
-        for seq_from_document, list_of_tokens in seqs_with_tokens_from_document :
+        for seq_from_document in seqs_from_document :
             try :
                 # The sequence was already in the database, so the sequence object from the database is used.
-                seq = seqs_already_in_db[str(seq_from_document)]
+                seq = seqs_already_in_db[(seq_from_document.type, str(seq_from_document))]
             except KeyError :
                 # The sequence wasn't in the database, so it's added to the database.
-                seq = self.session.add(seq_from_document)
+                seq = seq_from_document
             else :
-                seq.prevalence += seq_from_document.prevalence
+                seq.count += seq_from_document.count
+                seq.indexes.extend(seq_from_document.indexes)
 
-            yield (seq, list_of_tokens)
-
-    def _seqs_with_tokens (self, document) :
-        seqs_with_tokens_from_document = {}
-
-        for window in windowed(self.tokenize(document), size=self.max_gram_length) :
-            for tokens in self._group_tokens_like_a_gram(window) :
-                try :
-                    self._accumulate_seqs(seqs_with_tokens_from_document, self.seq(tokens), tokens)
-                except AttributeError :
-                    # <self.seq(tokens)> likely returned None, which means we hit a stop sequence (stop word).
-                    pass
-
-        return list(seqs_with_tokens_from_document.values())
-
-    def _make_indexes (self, document, not_yet_indexed) :
-        for seq, list_of_tokens in not_yet_indexed :
-            for tokens in list_of_tokens :
-                first_token = tokens[0]
-                last_token  = tokens[-1]
-
-                yield Index(document,
-                            seq,
-                            first_token.index,
-                            last_token.index,
-                            first_token.first_character_index,
-                            last_token.last_character_index)
-
-    ''' Below are some methods and class attributes that inheriting classes may wish to override. '''
-
-    ''' This is the maximum length (in words) of the n-grams that will be indexed. '''
-    max_gram_length = 5
-
-    ''' A set of strings and gram tuples which will not be indexed. '''
-    stop_seqs = set()
-
-    def is_stop_seq (self, seq) :
-        return seq in self.stop_seqs
-
-    def tokenize (self, string) :
-        ''' This is a proxy to the specific tokenization algorithm used to split the document into tokens (think
-            words). '''
-
-        return re_tokenize(string)
-
-    def stem (self, string) :
-        ''' This is a proxy to the specific stemming/lemmatisation algorithm used to map multiple forms of a word,
-            e.g., diffrent capitlization, whitespace, or inflections, to a single form. '''
-
-        return stem.clean(string)
-
-    def gram (self, tokens) :
-        gram_tuple = tuple(self.stem(str(token)) for token in tokens)
-        if not self.is_stop_seq(gram_tuple) :
-            return Gram(gram_tuple, prevalence=0)
-
-    def word (self, tokens) :
-        word_string = self.stem(str(tokens[0]))
-        if not self.is_stop_seq(word_string) :
-            return Word(word_string, prevalence=0)
-
-    def seq (self, tokens) :
-        if len(tokens) == 1 :
-            return self.word(tokens)
-        else :
-            return self.gram(tokens)
+            yield seq
 
 class RemoveIndexes (_EditIndexes) :
     ''' This removes the indexes for a document; this undoes <AddIndexes>. '''
 
     def __call__ (self) :
-        for index, seq in self.session.access.indexes(self.document) :
-            seq.prevalence -= 1
+        seqs = list(self.document.seqs)
+        self.document.seqs.clear()
 
-            if seq.prevalence < 1 :
+        for seq in seqs :
+            for index in list(seq.indexes) :
+                if index.document is self.document :
+                    seq.indexes.remove(index)
+                    self.session.remove(index)
+                    seq.count -= 1
+
+            if seq.count < 1 :
                 self.session.remove(seq)
 
-            self.session.remove(index)
-
-class Indexer (SessionDependent) :
-    ''' The indexer is used to construct a textual index of documents within the database. This allows for rapid word
-        and n-gram (groups of words) lookups. '''
+class Indexed (SessionDependent) :
+    ''' This is used to construct a textual index of documents within the database. This allows for rapid word and
+        n-gram (groups of words) lookups. '''
 
     def update (self, document) :
         ''' This updates the indexes for a document. '''
@@ -146,8 +79,8 @@ class Indexer (SessionDependent) :
         self.remove(document)
         self.add(document)
 
-    def add (self, document) :
-        AddIndexes(self.session, document)()
+    def add (self, document, *args, **kw) :
+        AddIndexes(self.session, document, *args, **kw)()
 
     def remove (self, document) :
         RemoveIndexes(self.session, document)()
@@ -163,29 +96,22 @@ def __test__ (ut) :
                'functioning GNU system made useful by the GNU corelibs, shell utilities and vital system components '
                'comprising a full OS as defined by POSIX.')]
 
-    max_gram_length = 3
-
     db = Database()
 
+    max_gram_length = 3
+
     with db as session :
-        for text in corpus :
-            session.add(Document(text))
+        session.add_many(Document(text) for text in corpus)
 
     with db as session :
         for document in session.access.all_documents() :
-            add_indexes = AddIndexes(session, document)
-
-            # This is done in case the default <AddIndexes.tokenize> implementation is changed from <re_tokenize>.
-            add_indexes.tokenize = re_tokenize
-            add_indexes.max_gram_length = max_gram_length
-
-            add_indexes()
+            AddIndexes(session, document, max_gram_length=max_gram_length)()
 
     with db as session :
         ut.assert_equal(max(len(tuple(gram)) for gram in session.access.all_grams()), max_gram_length)
         ut.assert_equal(len(session.access.all_indexes()), 210)
 
-        interject = documents_containing(session.access.concordance('interject'))
+        interject = documents_containing(session.access.word('interject'))
         ut.assert_equal(len(interject), 1)
         interject_document, indexes = interject.popitem()
         ut.assert_equal(len(indexes), 1)
@@ -193,8 +119,8 @@ def __test__ (ut) :
         ut.assert_equal((str(interject_document), str(interject_word), int(interject_index)),
                         (corpus[0], 'interject', 5))
 
-        gnu = documents_containing(session.access.concordance('gnu'))
-        ut.assert_equal(session.access.word('gnu').prevalence, 4)
+        gnu = documents_containing(session.access.word('gnu'))
+        ut.assert_equal(session.access.word('gnu').count, 4)
 
         # Sets are used because order is not guaranteed.
         ut.assert_equal({str(document) for document in gnu.keys()},
@@ -205,17 +131,26 @@ def __test__ (ut) :
 
         ut.assert_true(session.access.word('proprietary') is None)
 
-        ut.assert_equal(len(documents_containing(session.access.concordance('shell utilities')).values()), 1)
+        ut.assert_equal(len(documents_containing(session.access.gram('shell utilities')).values()), 1)
+        ut.assert_equal(len(documents_containing(session.access.word('a')).values()), 2)
 
     # Test the removal of indexes.
     with db as session :
-        for document in session.access.all_documents() :
-            RemoveIndexes(session, document)()
+        sorted_all_documents = sorted(session.access.all_documents(), key=lambda document : str(document))
+        first_document = sorted_all_documents[0]
+        RemoveIndexes(session, first_document)()
+        session.remove(first_document)
+
+    with db as session :
+        other_document = session.access.all_documents()[0]
+        ut.assert_equal(sorted(other_document.seqs), sorted(session.access.all_seqs()))
+        ut.assert_true(all(index.document is other_document for index in session.access.all_indexes()))
+        RemoveIndexes(session, other_document)()
 
     with db as session :
         ut.assert_equal(len(session.access.all_seqs()), 0)
         ut.assert_equal(len(session.access.all_indexes()), 0)
-        ut.assert_equal(len(session.access.all_documents()), 2)
+        ut.assert_equal(len(session.access.all_documents()), 1)
 
 if __name__ == '__main__' :
     from nlplib.general.unit_test import UnitTest

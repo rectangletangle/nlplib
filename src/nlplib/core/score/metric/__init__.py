@@ -1,10 +1,10 @@
 
 
-__all__ = ['prevalence']
+__all__ = ['count']
 
-def prevalence (seq) :
+def count (seq) :
     try :
-        return seq.prevalence
+        return seq.count
     except AttributeError :
         return 1
 

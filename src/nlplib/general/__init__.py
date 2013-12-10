@@ -1,3 +1,4 @@
+# todo : lemmatize module names like in core
 
 
 from itertools import chain

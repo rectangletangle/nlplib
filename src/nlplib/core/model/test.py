@@ -36,13 +36,12 @@ def _test_neural_network_model (ut) :
         ut.assert_equal(len(nn_a.elements), 6)
         ut.assert_equal([link.strength for link in nn_a.links], [0, 1])
         ut.assert_equal(len(nn_a.nodes), 4)
-        ut.assert_equal([session.access.specific(Word, io_node.seq.id) for io_node in nn_a.io_nodes],
-                        [Word('a'), Word('b')])
+        ut.assert_equal([io_node.seq for io_node in nn_a.io_nodes], [Word('a'), Word('b')])
 
         ut.assert_equal(len(nn_b.elements), 3)
         ut.assert_equal([link.strength for link in nn_b.links], [2])
         ut.assert_equal(len(nn_b.nodes), 2)
-        ut.assert_equal([session.access.specific(Word, io_node.seq.id) for io_node in nn_b.io_nodes], [Word('c')])
+        ut.assert_equal([io_node.seq for io_node in nn_b.io_nodes], [Word('c')])
 
         ut.assert_equal(len(nn_c.elements), 0 )
         ut.assert_equal(len(nn_c.links),    0 )
@@ -50,6 +49,7 @@ def _test_neural_network_model (ut) :
         ut.assert_equal(len(nn_c.io_nodes), 0 )
 
 def _test_neural_network_links (ut) :
+    raise DeprecationWarning
     def get_ids (nodes) :
         return [node.id for node in nodes]
 

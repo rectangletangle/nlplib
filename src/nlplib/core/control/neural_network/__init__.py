@@ -73,8 +73,7 @@ class BackPropagate (NeuralNetworkDependent) :
                     self._get_link(input_node, hidden_node).strength += n * change
                 except :
 
-                    print([node.id for node in input_node.output_nodes],
-                          [node.id for node in hidden_node.input_nodes])
+
                     raise
 
     def __call__ (self, input_seqs, correct_output) :

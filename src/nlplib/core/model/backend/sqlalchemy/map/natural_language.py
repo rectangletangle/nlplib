@@ -1,7 +1,7 @@
 ''' This module outlines how natural language related models are mapped to their respective SQLAlchemy tables. '''
 
 
-from sqlalchemy.orm import relationship, reconstructor, backref
+from sqlalchemy.orm import relationship, reconstructor, backref, column_property
 from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, UniqueConstraint, Table
 
 from nlplib.core.model.backend.sqlalchemy.map.base import ClassMapper
@@ -25,10 +25,11 @@ class DocumentMapper (ClassMapper) :
     def mapper_kw (self) :
         association = Table('document_seq_association',
                             self.metadata,
-                            Column('_document_id', Integer, ForeignKey('document.id')),
-                            Column('_seq_id', Integer, ForeignKey('seq.id')))
+                            Column('document_id', Integer, ForeignKey('document.id')),
+                            Column('seq_id', Integer, ForeignKey('seq.id')))
 
-        return {'properties' : {'seqs' : relationship(self.classes['seq'], secondary=association)}}
+        return {'properties' : {'seqs' : relationship(self.classes['seq'], secondary=association),
+                                '_id'  : self.table.c.id}}
 
 class SeqMapper (ClassMapper) :
     cls  = Seq
@@ -42,7 +43,9 @@ class SeqMapper (ClassMapper) :
                 UniqueConstraint('type', 'string'))
 
     def mapper_kw (self) :
-        return {'properties' : {'indexes' : relationship(self.classes['index'])},
+        return {'properties' : {'indexes' : relationship(self.classes['index']),
+                                '_id'     : self.table.c.id,
+                                '_type'   : self.table.c.type},
                 'polymorphic_identity' : self.name,
                 'polymorphic_on' : self.table.c.type}
 
@@ -54,7 +57,8 @@ class GramMapper (ClassMapper) :
         return (Column('id', Integer, ForeignKey('seq.id'), primary_key=True),)
 
     def mapper_kw (self) :
-        return {'inherits' : self.classes['seq'],
+        return {'properties' : {'_id' : column_property(self.table.c.id, self.tables['seq'].c.id)},
+                'inherits' : self.classes['seq'],
                 'polymorphic_identity' : self.name}
 
     def map (self) :
@@ -72,7 +76,8 @@ class WordMapper (ClassMapper) :
         return (Column('id', Integer, ForeignKey('seq.id'), primary_key=True),)
 
     def mapper_kw (self) :
-        return {'inherits' : self.classes['seq'],
+        return {'properties' : {'_id' : column_property(self.table.c.id, self.tables['seq'].c.id)},
+                'inherits' : self.classes['seq'],
                 'polymorphic_identity' : self.name}
 
 class IndexMapper (ClassMapper) :
@@ -86,12 +91,12 @@ class IndexMapper (ClassMapper) :
                 Column('first_character', Integer),
                 Column('last_character', Integer),
                 Column('tokenization_algorithm', String),
-
-                Column('_document_id', Integer, ForeignKey('document.id'), nullable=False),
-                Column('_seq_id', Integer, ForeignKey('seq.id'), nullable=False))
+                Column('document_id', Integer, ForeignKey('document.id'), nullable=False),
+                Column('seq_id', Integer, ForeignKey('seq.id'), nullable=False))
 
     def mapper_kw (self) :
-        return {'properties' : {'document' : relationship(self.classes['document'])}}
-    # 'seq'      : relationship(self.classes['seq'], backref='indexes')}
-
+        return {'properties' : {'document'     : relationship(self.classes['document']),
+                                '_id'          : self.table.c.id,
+                                '_document_id' : self.table.c.document_id,
+                                '_seq_id'      : self.table.c.seq_id}}
 

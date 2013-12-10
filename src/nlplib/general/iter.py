@@ -20,9 +20,14 @@ def windowed (iterable, size, step=1) :
     ''' This function yields a tuple of a given size then steps forward. If the step is smaller than the size, the
         function yields overlapped tuples. '''
 
-    iterable = tuple(iterable) # Could be made more efficient, then used to implement chunked.
-    for i in range(0, len(iterable), step) :
-        yield iterable[i:i+size]
+    if size == 1 and step == 1 :
+        # A more efficient implementation for this particular special case.
+        for item in iterable :
+            yield (item,)
+    else :
+        iterable = tuple(iterable) # Could be made more efficient, then used to implement chunked.
+        for i in range(0, len(iterable), step) :
+            yield iterable[i:i+size]
 
 def chop (iterable, size) :
     ''' This chops off any chunks in an iterable below a certain size. '''
@@ -43,6 +48,7 @@ def __test__ (ut) :
 
     ut.assert_equal(list(windowed(range(4), 3, 1)), [(0, 1, 2), (1, 2, 3), (2, 3), (3,)] )
     ut.assert_equal(list(windowed(range(6), 3, 3)), [(0, 1, 2), (3, 4, 5)]               )
+    ut.assert_equal(list(windowed(range(6), 1, 1)), [(0,), (1,), (2,), (3,), (4,), (5,)] )
 
     size = 3
     ut.assert_equal(list(chop(windowed(range(4), size, 1), size)), [(0, 1, 2), (1, 2, 3)] )

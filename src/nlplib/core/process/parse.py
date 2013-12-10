@@ -4,20 +4,54 @@ from nlplib.core.process.token import re_tokenize
 from nlplib.core.process import stem
 from nlplib.core.model import Word, Gram, Index
 from nlplib.general.iter import windowed
+from nlplib.core.exc import NLPLibError
 from nlplib.core import Base
 
-__all__ = ['Parse']
+__all__ = ['DontParse', 'HitStopSeq', 'Parsed']
 
-class Parse (Base) :
-    def __init__ (self, document, stop_seqs=None, max_gram_length=5) :
+class DontParse (NLPLibError) :
+    pass
+
+class HitStopSeq (DontParse) :
+    pass
+
+class Parsed (Base) :
+    def __init__ (self, document, stop_seqs=None, max_gram_length=1, yield_grams=True, stem=stem.clean,
+                  tokenize=re_tokenize) :
+
         self.document = document
 
         if stop_seqs is None :
             self.stop_seqs = set()
         else :
-            self.stop_seqs = stop_seqs
+            self.stop_seqs = set(stop_seqs)
 
         self.max_gram_length = max_gram_length
+        self.yield_grams     = yield_grams
+
+        self.stem = stem
+
+        self.tokenize = tokenize
+
+    def __repr__ (self, *args, **kw) :
+        # todo : make all repr's take the arguments <*args, **kw>.
+        return super().__repr__(self.document, *args, **kw)
+
+    def __iter__ (self) :
+        unique_seqs = {}
+
+        for stems, tokens in self._parse() :
+            try :
+                seq = self._seq(stems)
+            except DontParse :
+                continue
+            else :
+                # This makes sure that sequences that have the same string value map to a single sequence instance.
+                seq = unique_seqs.setdefault(str(seq), seq)
+
+                self._add_index(seq, tokens)
+
+                yield seq
 
     def _stem_tokens (self, tokens) :
         for token in tokens :
@@ -28,73 +62,56 @@ class Parse (Base) :
         for i in range(min_gram_length, len(tuple_) + 1) :
             yield tuple_[:i]
 
-    def _accumulate_seqs (self, seqs_with_tokens_from_document, seq, tokens) :
-        seq, all_tokens_for_seq = seqs_with_tokens_from_document.setdefault(str(seq), (seq, []))
-        seq.count += 1
-        all_tokens_for_seq.append(tokens)
-
-    def __call__ (self) :
-        seqs_with_tokens_from_document = {}
-
+    def _parse (self) :
         stems_and_tokens = self._stem_tokens(self.tokenize(self.document))
+        max_gram_length = self.max_gram_length
 
-        for window in windowed(stems_and_tokens, size=self.max_gram_length) :
-            for stems_and_tokens in self._sub_grams(window) :
-                stems, tokens = zip(*stems_and_tokens)
-
-                try :
-                    self._accumulate_seqs(seqs_with_tokens_from_document, self.seq(stems), tokens)
-                except AttributeError :
-                    # <self.seq(tokens)> likely returned None, which means we hit a stop sequence (stop word).
-                    pass
-
-        for seq, all_tokens_for_seq in seqs_with_tokens_from_document.values() :
-            seq.indexes.extend(self.indexes(all_tokens_for_seq))
-            yield seq
-
-    def is_stop_seq (self, seq) :
-        return seq in self.stop_seqs
-
-    def tokenize (self, string) :
-        ''' This is a proxy to the specific tokenization algorithm used to split the document into tokens (think
-            words). '''
-
-        return re_tokenize(string)
-
-    def stem (self, string) :
-        ''' This is a proxy to the specific stemming/lemmatisation algorithm used to map multiple forms of a word,
-            e.g., diffrent capitlization, whitespace, or inflections, to a single form. '''
-
-        return stem.clean(string)
-
-    def gram (self, gram_tuple) :
-        if not self.is_stop_seq(gram_tuple) :
-            return Gram(gram_tuple, count=0)
-
-    def word (self, word_string) :
-        if not self.is_stop_seq(word_string) :
-            return Word(word_string, count=0)
-
-    def seq (self, strings) :
-        if len(strings) == 1 :
-            return self.word(strings[0])
+        if max_gram_length == 1 :
+            # This is a special case, that's done a bit more efficiently.
+            for stem, token in stems_and_tokens :
+                yield ((stem,), (token,))
         else :
-            return self.gram(strings)
+            for window in windowed(stems_and_tokens, size=max_gram_length) :
+                for stems_and_tokens in self._sub_grams(window) :
+                    stems, tokens = zip(*stems_and_tokens)
+                    yield (stems, tokens)
 
-    def indexes (self, all_tokens_for_seq) :
-        for group_of_tokens in all_tokens_for_seq :
-            first_token, last_token = (group_of_tokens[0], group_of_tokens[-1])
+    def _check_if_is_stop_seq (self, string_or_gram_tuple, seq) :
+        if string_or_gram_tuple in self.stop_seqs :
+            raise HitStopSeq
+        else :
+            return seq
 
-            yield Index(self.document,
-                        first_token.index,
-                        last_token.index,
-                        first_token.first_character_index,
-                        last_token.last_character_index)
+    def _gram (self, gram_tuple) :
+        gram = self._check_if_is_stop_seq(gram_tuple, Gram(gram_tuple, count=0))
+        if self.yield_grams :
+            return gram
+        else :
+            raise DontParse
+
+    def _word (self, word_string) :
+        return self._check_if_is_stop_seq(word_string, Word(word_string, count=0))
+
+    def _seq (self, strings) :
+        if len(strings) == 1 :
+            return self._word(strings[0])
+        else :
+            return self._gram(strings)
+
+    def _add_index (self, seq, tokens) :
+        first_token, last_token = (tokens[0], tokens[-1])
+
+        index = Index(self.document,
+                      first_token.index,
+                      last_token.index,
+                      first_token.first_character_index,
+                      last_token.last_character_index)
+
+        seq.count += 1
+        seq.indexes.append(index)
 
 def __test__ (ut) :
     from nlplib.core.model import Document, Database
-    from nlplib.core.process.concordance import documents_containing
-    from nlplib.core.process.token import re_tokenize
 
     text = ("I'd just like to interject for a moment. What you're referring to as Linux, is in fact, GNU/Linux, or "
             "as I've recently taken to calling it, GNU plus Linux.")
@@ -107,10 +124,11 @@ def __test__ (ut) :
         session.add(Document(text))
 
     with db as session :
-        seqs = list(Parse(session.access.all_documents()[0], max_gram_length=max_gram_length)())
+        parsed = Parsed(session.access.all_documents()[0], max_gram_length=max_gram_length)
+        unique_seqs = set(parsed)
 
-        words = [seq for seq in seqs if isinstance(seq, Word)]
-        grams = [seq for seq in seqs if isinstance(seq, Gram)]
+        words = [seq for seq in unique_seqs if isinstance(seq, Word)]
+        grams = [seq for seq in unique_seqs if isinstance(seq, Gram)]
 
         ut.assert_equal({str(word) for word in words},
                         {stem.clean(token) for token in re_tokenize(text)})
@@ -120,10 +138,32 @@ def __test__ (ut) :
         ut.assert_equal(len(words), 26)
         ut.assert_equal(len(grams), 177)
 
+    # The parser shouldn't have any database related side-effects.
     with db as session :
         ut.assert_equal(len(session.access.all_seqs()), 0)
         ut.assert_equal(len(session.access.all_indexes()), 0)
         ut.assert_equal(len(session.access.all_documents()), 1)
+
+    def parsed_string (string, *args, **kw) :
+        return ' '.join(str(seq) for seq in Parsed(string, *args, **kw))
+
+    string = 'And The cat ate the  foOd, and'
+
+    for seq, correct_index_count in zip(Parsed(string), [1, 1, 1, 1, 2, 1, 2]) :
+        ut.assert_true(seq.count == len(seq.indexes) == correct_index_count)
+
+    ut.assert_equal(parsed_string(string), 'and the cat ate the food and')
+
+    # Testing with stop sequences
+
+    ut.assert_equal(parsed_string(string, stop_seqs={'the', 'ate'}), 'and cat food and')
+
+    # No actual stemming is done if the <str> function is used in place of a stemmer.
+    ut.assert_equal(parsed_string(string, stem=str, stop_seqs={'The', 'ate'}), 'And cat the foOd and')
+
+    # todo : make this pass, words shouldn't be yielded if they're in the context of a stop gram.
+    #string = 'the and the and if the and the the and platypus the'
+    #ut.assert_equal(parsed_string(string, max_gram_length=2, yield_grams=False, stop_seqs={('and', 'the'), 'platypus'}), 'the and if the the and the')
 
 if __name__ == '__main__' :
     from nlplib.general.unit_test import UnitTest

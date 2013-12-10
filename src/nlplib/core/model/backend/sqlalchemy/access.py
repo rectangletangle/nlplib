@@ -30,15 +30,23 @@ class Access (abstract.Access) :
     def specific (self, cls, id) :
         return self.session._sqlalchemy_session.query(cls).get(id)
 
-    def most_common (self, cls=Seq, top=1000) :
+    def most_common (self, cls=Seq, top=10) :
         return self.session._sqlalchemy_session.query(cls).order_by(cls.count.desc()).slice(0, top).all()
 
+    def _seq (self, cls, string) :
+        return self.session._sqlalchemy_session.query(cls).filter_by(string=string).first()
+
+    def seq (self, string) :
+        return self._seq(Seq, string)
+
     def gram (self, gram_string_or_tuple) :
-        session = self.session._sqlalchemy_session
-        return session.query(Gram).filter_by(string=str(Gram(gram_string_or_tuple))).first()
+        return self._seq(Gram, str(Gram(gram_string_or_tuple)))
 
     def word (self, word_string) :
-        return self.session._sqlalchemy_session.query(Word).filter_by(string=word_string).first()
+        return self._seq(Word, word_string)
+
+    def indexes (self, document) :
+        return self.session._sqlalchemy_session.query(Index, Seq).filter(Index.document == document).join(Seq).all()
 
     def matching (self, strings, cls=Seq, _chunk_size=200) :
         for chunked_strings in chunked(strings, _chunk_size) :

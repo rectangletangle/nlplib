@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 
-from nlplib.core.model.backend.sqlalchemy.map import default_mapper
+from nlplib.core.model.backend.sqlalchemy.map import default_mapped
 from nlplib.core.model.backend.sqlalchemy.access import Access
 from nlplib.core.model.backend import abstract
 from nlplib.core.model.exc import IntegrityError, StorageError
@@ -50,7 +50,7 @@ class Database (abstract.Database) :
         self._sqlalchemy_engine = create_engine(self.path)
         self._make_sqlalchemy_session = sessionmaker(bind=self._sqlalchemy_engine)
 
-        default_mapper.metadata.create_all(self._sqlalchemy_engine)
+        default_mapped.metadata.create_all(self._sqlalchemy_engine)
 
     @contextmanager
     def session (self) :

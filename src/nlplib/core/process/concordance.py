@@ -1,11 +1,10 @@
-''' This module contains multiple handy functions for working with the concordance of a sequence. '''
 
 
 from nlplib.core.process.token import split
 from nlplib.core.model import Gram
 from nlplib.core import Base
 
-__all__ = ['Window', 'concordance', 'raw', 'gram_tuples', 'grams', 'documents_containing']
+__all__ = ['Window', 'Concordance']
 
 class Window (Base) :
     ''' This class acts as a window through which you can view the concordance. '''
@@ -13,11 +12,11 @@ class Window (Base) :
     __slots__ = ('before', 'after')
 
     def __init__ (self, before=0, after=2) :
-        ''' before : defines how many words/characters before the concordance you can see
-            after  : defines how many words/characters after the concordance you can see '''
+        ''' before : how many words/characters before the concordance you can see
+            after  : how many words/characters after the concordance you can see '''
 
-        self.before = abs(before)
-        self.after  = abs(after)
+        self.before = before
+        self.after  = after
 
     def __repr__ (self) :
         return super().__repr__(before=self.before, after=self.after)
@@ -25,47 +24,63 @@ class Window (Base) :
     def slice (self, start, end=None) :
         if end is None :
             end = start
-        return slice(abs(start - self.before), abs(end + self.after + 1))
+        return slice(abs(start - abs(self.before)), abs(end + abs(self.after) + 1))
 
-def concordance (seq) :
-    try :
-        seq.indexes
-    except AttributeError :
-        pass
-    else :
-        for index in seq.indexes :
-            yield (index.document, index, seq)
+class Concordance (Base) :
+    ''' This class contains multiple handy methods for working with the concordance of a sequence. '''
 
-def raw (seq) :
-    ''' This yields tuples that contain the raw string (unmodified whitespace and all) which the sequence object that
-        was representing. '''
+    def __init__ (self, seq) :
+        self.seq = seq
 
-    for document, index, seq in concordance(seq) :
-        raw_string = str(document)[index.first_character:index.last_character+1]
+    def __iter__ (self) :
+        try :
+            self.seq.indexes
+        except AttributeError :
+            pass
+        else :
+            for index in self.seq.indexes :
+                yield (index.document, index, self.seq)
 
-        yield (document, index, raw_string)
+    def __len__ (self) :
+        try :
+            return len(self.seq.indexes)
+        except AttributeError :
+            return 0
 
-def gram_tuples (seq, window=Window(), splitter=split) :
-    already_split_documents = {}
-    for document, index, seq in concordance(seq) :
-        split_document = already_split_documents.get(document)
-        if split_document is None :
-            split_document = tuple(splitter(document))
-            already_split_documents[document] = split_document
+    def __repr__ (self) :
+        return super().__repr__(self.seq)
 
-        yield split_document[window.slice(index.first_token, index.last_token)]
+    def raw (self) :
+        ''' This yields tuples that contain the raw string (unmodified whitespace and all) which the sequence object
+            was representing. '''
 
-def grams (*args, **kw) :
-    for gram_tuple in gram_tuples(*args, **kw) :
-        yield Gram(gram_tuple)
+        for document, index, seq in self :
+            raw_string = str(document)[index.first_character:index.last_character+1]
+            yield (document, index, raw_string)
 
-def documents_containing (seq) :
-    documents = {}
-    for document, index, seq in concordance(seq) :
-        indexes_for_document = documents.setdefault(document, [])
-        indexes_for_document.append((index, seq))
+    def gram_tuples (self, window=Window(), splitter=split) :
+        already_split_documents = {}
+        for document, index, seq in self :
+            try :
+                split_document = already_split_documents[document]
+            except KeyError :
+                split_document = tuple(splitter(document))
+                already_split_documents[document] = split_document
 
-    return documents
+            yield split_document[window.slice(index.first_token, index.last_token)]
+
+    def grams (self, *args, **kw) :
+        for gram_tuple in self.gram_tuples(*args, **kw) :
+            yield Gram(gram_tuple)
+
+    def documents (self, documents=None) :
+        if documents is None :
+            documents = {}
+
+        for document, index, seq in self :
+            indexes_for_document = documents.setdefault(document, [])
+            indexes_for_document.append((index, seq))
+        return documents
 
 def _test_window (ut) :
     some_indexes = list(range(10))
@@ -78,7 +93,7 @@ def _test_window (ut) :
     ut.assert_equal(some_indexes[Window(0, 1).slice(5)],    [5, 6]          )
 
 def __test__ (ut) :
-    from nlplib.core.model import Database, Document
+    from nlplib.core.model import Database, Document, Word
     from nlplib.core.index import Indexed
 
     _test_window(ut)
@@ -101,29 +116,32 @@ def __test__ (ut) :
 
         indexed = Indexed(session)
         for document in session.access.all_documents() :
-            indexed.add(document)
+            indexed.add(document, max_gram_length=5)
 
     # Testing
     with db as session :
-        is_a = session.access.gram('is a')
+        concordance_of_is_a = Concordance(session.access.gram('is a'))
+        ut.assert_equal(len(concordance_of_is_a), 2)
 
-        grams_for_concordance = grams(is_a, window=Window(before=1, after=2))
-        correct_strings       = ['Python is a widely used', 'Python is a significant fork']
+        grams_for_concordance = concordance_of_is_a.grams(window=Window(before=1, after=2))
+        correct_strings = ['Python is a widely used', 'Python is a significant fork']
         for gram, correct_string in zip(grams_for_concordance, correct_strings) :
             ut.assert_equal(gram, Gram(correct_string))
 
         # Tests <raw>, note the differences in the white space.
-        for stuff, correct_string in zip(raw(is_a), ['is a', 'is  a']) :
+        for stuff, correct_string in zip(concordance_of_is_a.raw(), ['is a', 'is  a']) :
             raw_string = stuff[2]
 
             ut.assert_equal(raw_string, correct_string)
 
-        documents = documents_containing(is_a)
-        ut.assert_equal(len(documents.keys()), 2)
+        ut.assert_equal(len(concordance_of_is_a.documents().keys()), 2)
+
+        session.add(Word('foobar'))
+        session.add(Gram('foo bar'))
 
         # Testing by glorified "word" counting.
         def test_count (access, string, count) :
-            ut.assert_equal(len(list(concordance(access(string)))), count)
+            ut.assert_equal(len(Concordance(access(string))), count)
 
         for string, count in [('a', 4), ('of', 2), ('to', 2), ('and', 2), ('significant', 1), ('foobar', 0)] :
             test_count(session.access.word, string, count)
@@ -134,4 +152,3 @@ def __test__ (ut) :
 if __name__ == '__main__' :
     from nlplib.general.unit_test import UnitTest
     __test__(UnitTest())
-

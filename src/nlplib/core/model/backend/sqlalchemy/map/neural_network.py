@@ -1,7 +1,7 @@
 ''' This module outlines how neural network related models are mapped to their respective SQLAlchemy tables. '''
 
 
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, column_property
 from sqlalchemy import Column, Integer, Float, String, ForeignKey
 
 from nlplib.core.model.backend.sqlalchemy.map.base import ClassMapper
@@ -20,7 +20,8 @@ class NeuralNetworkMapper (ClassMapper) :
                                                           backref='neural_network'),
                                 'links'    : relationship(self.classes['link']),
                                 'nodes'    : relationship(self.classes['node']),
-                                'io_nodes' : relationship(self.classes['io_node'])}}
+                                'io_nodes' : relationship(self.classes['io_node']),
+                                '_id'      : self.table.c.id}}
 
 class NeuralNetworkElementMapper (ClassMapper) :
     cls  = NeuralNetworkElement
@@ -29,11 +30,13 @@ class NeuralNetworkElementMapper (ClassMapper) :
     def columns (self) :
         return (Column('id', Integer, primary_key=True),
                 Column('type', String),
-
-                Column('_neural_network_id', Integer, ForeignKey('neural_network.id'), nullable=False))
+                Column('neural_network_id', Integer, ForeignKey('neural_network.id'), nullable=False))
 
     def mapper_kw (self) :
-        return {'polymorphic_identity' : self.name,
+        return {'properties' : {'_id'                : self.table.c.id,
+                                '_type'              : self.table.c.type,
+                                '_neural_network_id' : self.table.c.neural_network_id},
+                'polymorphic_identity' : self.name,
                 'polymorphic_on' : self.table.c.type}
 
 class LinkMapper (ClassMapper) :
@@ -44,16 +47,20 @@ class LinkMapper (ClassMapper) :
         return (Column('id', Integer, ForeignKey('neural_network_element.id'), primary_key=True),
                 Column('strength', Float),
 
-                Column('_input_node_id', Integer, ForeignKey('node.id'), primary_key=True),
-                Column('_output_node_id', Integer, ForeignKey('node.id'), primary_key=True))
+                Column('input_node_id', Integer, ForeignKey('node.id'), primary_key=True),
+                Column('output_node_id', Integer, ForeignKey('node.id'), primary_key=True))
 
     def mapper_kw (self) :
         return {'inherits' : self.classes['neural_network_element'],
                 'polymorphic_identity' : self.name,
-                'properties' : {'input_node' : relationship(self.classes['node'],
-                                                            foreign_keys=(self.table.c._input_node_id,)),
-                                'output_node' : relationship(self.classes['node'],
-                                                             foreign_keys=(self.table.c._output_node_id,))}}
+                'properties' : {'input_node'      : relationship(self.classes['node'],
+                                                                 foreign_keys=(self.table.c.input_node_id,)),
+                                'output_node'     : relationship(self.classes['node'],
+                                                                 foreign_keys=(self.table.c.output_node_id,)),
+                                '_input_node_id'  : self.table.c.input_node_id,
+                                '_output_node_id' : self.table.c.output_node_id,
+                                '_id'             : column_property(self.table.c.id,
+                                                                    self.tables['neural_network_element'].c.id)}}
 
 class NodeMapper (ClassMapper) :
     cls  = Node
@@ -69,13 +76,15 @@ class NodeMapper (ClassMapper) :
 
         relation = relationship(self.cls,
                                 secondary=link_table,
-                                primaryjoin=self.table.c.id==link_table.c._input_node_id,
-                                secondaryjoin=self.table.c.id==link_table.c._output_node_id,
+                                primaryjoin=self.table.c.id==link_table.c.input_node_id,
+                                secondaryjoin=self.table.c.id==link_table.c.output_node_id,
                                 backref='input_nodes')
 
-        return {'inherits' : self.classes['neural_network_element'],
-                'polymorphic_identity' : self.name,
-                'properties' : {'output_nodes' : relation}}
+        return {'properties' : {'output_nodes' : relation,
+                                '_id'          : column_property(self.table.c.id,
+                                                                 self.tables['neural_network_element'].c.id)},
+                'inherits' : self.classes['neural_network_element'],
+                'polymorphic_identity' : self.name}
 
 class IONodeMapper (ClassMapper) :
     cls  = IONode
@@ -83,11 +92,14 @@ class IONodeMapper (ClassMapper) :
 
     def columns (self) :
         return (Column('id', Integer, ForeignKey('node.id'), primary_key=True),
-
-                Column('_seq_id', Integer, ForeignKey('seq.id'), nullable=False))
+                Column('seq_id', Integer, ForeignKey('seq.id'), nullable=False))
 
     def mapper_kw (self) :
-        return {'inherits' : self.classes['node'],
-                'polymorphic_identity' : self.name,
-                'properties' : {'seq' : relationship(self.classes['seq'])}}
+        return {'properties' : {'seq'     : relationship(self.classes['seq']),
+                                '_seq_id' : self.table.c.seq_id,
+                                '_id'     : column_property(self.table.c.id,
+                                                            self.tables['neural_network_element'].c.id,
+                                                            self.tables['node'].c.id)},
+                'inherits' : self.classes['node'],
+                'polymorphic_identity' : self.name}
 

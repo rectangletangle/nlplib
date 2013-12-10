@@ -7,7 +7,7 @@ try :
 except ImportError :
     raise ImportError(r'This package requires Beautiful Soup, http://www.crummy.com/software/BeautifulSoup/')
 
-from nlplib.general.threaded import simultaneously
+from nlplib.general.thread import simultaneously
 from nlplib.general.iter import chunked
 from nlplib.core import Base
 

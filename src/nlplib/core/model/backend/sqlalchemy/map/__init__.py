@@ -12,9 +12,9 @@ from nlplib.core.model.backend.sqlalchemy.map import neural_network
 from nlplib.core import Base
 from nlplib.general import all_subclasses
 
-__all__ = ['Mapper', 'default_mapper']
+__all__ = ['Mapped', 'default_mapped']
 
-class Mapper (Base) :
+class Mapped (Base) :
     def __init__ (self) :
         self.metadata = MetaData()
 
@@ -40,6 +40,6 @@ class Mapper (Base) :
             except ArgumentError :
                 pass
 
-default_mapper = Mapper()
-default_mapper.map()
+default_mapped = Mapped()
+default_mapped.map()
 

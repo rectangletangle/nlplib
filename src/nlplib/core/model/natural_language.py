@@ -155,5 +155,5 @@ class Index (Model) :
         return self.last_token - self.first_token
 
     def __repr__ (self) :
-        return super().__repr__(self.document, self.first_token)
+        return super().__repr__(self.first_token, self.document)
 

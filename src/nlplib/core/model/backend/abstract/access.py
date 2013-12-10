@@ -18,6 +18,9 @@ class Access (SessionDependent) :
     def vocabulary (self) :
         return self.all_words()
 
+    def corpus (self) :
+        return self.all_documents()
+
     def all_documents (self) :
         ''' This returns all of the document objects in the database. '''
 
@@ -50,9 +53,12 @@ class Access (SessionDependent) :
 
         raise NotImplementedError
 
-    def most_common (self, cls=None, top=1000) :
+    def most_common (self, cls=None, top=10) :
         ''' This returns most common objects based on their count. '''
 
+        raise NotImplementedError
+
+    def seq (self, string) :
         raise NotImplementedError
 
     def gram (self, gram_string_or_tuple) :
@@ -64,6 +70,11 @@ class Access (SessionDependent) :
 
     def word (self, word_string) :
         ''' This returns the word object corresponding to a string, or <None>. '''
+
+        raise NotImplementedError
+
+    def indexes (self, document) :
+        ''' This returns all of the indexes (with their sequences) referencing the document. '''
 
         raise NotImplementedError
 
@@ -114,6 +125,8 @@ def abstract_test (ut, db_cls) :
                         mock((Word,), chars))
         ut.assert_equal(sorted(session.access.vocabulary()),
                         sorted(session.access.all_words()))
+        ut.assert_equal(sorted(session.access.corpus(), key=str),
+                        sorted(session.access.all_documents(), key=str))
 
         ut.assert_equal(sorted(session.access.most_common(cls=Seq, top=3)),
                         mock((Seq, Gram, Word), 'c'))

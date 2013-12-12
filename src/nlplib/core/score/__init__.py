@@ -1,11 +1,12 @@
 
+
 from functools import total_ordering
 
 from nlplib.general.math import normalize_values
 from nlplib.general import literal_representation
 from nlplib.core import Base
 
-__all__ = ['WeightedFunction', 'Score', 'weighted', 'score', 'rank']
+__all__ = ['WeightedFunction', 'Score', 'Scored', 'weighted']
 
 class WeightedFunction (Base) :
     ''' Weighted functions are functions that have an associated weight attribute. This allows for weighted scoring
@@ -33,9 +34,6 @@ class WeightedFunction (Base) :
             return (1.0 - normalized_score)
         else :
             return normalized_score
-
-def weighted (function, *args, **kw) :
-    return WeightedFunction(function, *args, **kw)
 
 @total_ordering
 class Score (Base) :
@@ -78,57 +76,67 @@ class Score (Base) :
         except (TypeError, ValueError) :
             raise self._unorderable_error()
 
-def _calculate_subscores (weighted_scoring_functions, object, scores) :
-    for scoring_function in weighted_scoring_functions :
-
-        unnormalized_subscores = (scoring_function(object, score.object)
-                                  for score in scores)
-
-        normalized_subscores = normalize_values(unnormalized_subscores)
-
-        for score, normalized_subscore in zip(scores, normalized_subscores) :
-            score.subscores[scoring_function] = scoring_function.adjust_orientation(normalized_subscore)
-
-def _calculate_scores (weighted_scoring_functions, scores) :
-
-    total_of_function_weights = sum(scoring_function.weight
-                                    for scoring_function in weighted_scoring_functions)
-
-    for score in scores :
-        total_of_subscores_for_object = sum(scoring_function.weight * subscore
-                                            for scoring_function, subscore in score.subscores.items())
-
-        try :
-            score.score = total_of_subscores_for_object / total_of_function_weights
-        except ZeroDivisionError :
-            # There were probably no scoring functions.
-            score.score = 1.0
-
-def _sort_scores (scores) :
-    # todo : This probably could be done in a more efficient manner.
-    sorted_by_objects_only = sorted(scores, key=lambda score : score.object)
-    return sorted(sorted_by_objects_only, reverse=True)
-
-def score (weighted_scoring_functions, object, similar_objects, sort=_sort_scores) :
-    ''' This function is used to generate scores normalized between 0 and 1 (1 indicating a better match), based on a
+class Scored (Base) :
+    ''' This class is used to generate scores normalized between 0 and 1 (1 indicating a better match), based on a
         weighted average of multiple sub-scores. '''
 
-    scores = [Score(similar_object) for similar_object in similar_objects]
+    def __init__ (self, object, similar_objects, weighted_scoring_functions=()) :
+        self.object = object
+        self.similar_objects = similar_objects
+        self.weighted_scoring_functions = weighted_scoring_functions
 
-    try :
-        _calculate_subscores(weighted_scoring_functions, object, scores)
-    except ValueError :
-        # This happens if the <scores> list is empty.
-        return scores
-    else :
-        _calculate_scores(weighted_scoring_functions, scores)
-        return sort(scores)
+    def __iter__ (self) :
+        # todo : This probably could be done in a more efficient manner.
+        sorted_by_objects_only = sorted(self.scores(), key=lambda score : score.object)
+        return iter(sorted(sorted_by_objects_only, reverse=True))
 
-def rank (*args, **kw) :
-    ''' This returns objects ordered by how high their score was. '''
+    def calculate_subscores (self, scores) :
+        for scoring_function in self.weighted_scoring_functions :
 
-    for scored in score(*args, **kw) :
-        yield scored.object
+            unnormalized_subscores = (scoring_function(self.object, score.object)
+                                      for score in scores)
+
+            normalized_subscores = normalize_values(unnormalized_subscores)
+
+            for score, normalized_subscore in zip(scores, normalized_subscores) :
+                score.subscores[scoring_function] = scoring_function.adjust_orientation(normalized_subscore)
+
+    def calculate_scores (self, scores) :
+
+        total_of_function_weights = sum(scoring_function.weight
+                                        for scoring_function in self.weighted_scoring_functions)
+
+        for score in scores :
+            total_of_subscores_for_object = sum(scoring_function.weight * subscore
+                                                for scoring_function, subscore in score.subscores.items())
+
+            try :
+                score.score = total_of_subscores_for_object / total_of_function_weights
+            except ZeroDivisionError :
+                # There were probably no scoring functions.
+                score.score = 1.0
+
+            yield score
+
+    def scores (self) :
+        scores = [Score(similar_object) for similar_object in self.similar_objects]
+
+        try :
+            self.calculate_subscores(scores)
+        except ValueError :
+            # This happens if the <scores> list is empty.
+            return scores
+        else :
+            return self.calculate_scores(scores)
+
+    def rank (self) :
+        ''' This returns objects ordered by how high their score was. '''
+
+        for scored in self :
+            yield scored.object
+
+def weighted (function, *args, **kw) :
+    return WeightedFunction(function, *args, **kw)
 
 def __test__ (ut) :
     from nlplib.core.score.metric import distance, count
@@ -153,18 +161,19 @@ def __test__ (ut) :
                                                  weight=levenshtein_distance_weight,
                                                  low_is_better=True)
 
-        args = ([weighted_levenshtein_distance, weighted_count], word, words)
+        args = (word, words, [weighted_levenshtein_distance, weighted_count])
 
-        return (score(*args), rank(*args))
+        scored = Scored(*args)
+        return (scored, scored.rank())
 
     # No scoring functions, means everything is a perfect match.
-    ut.assert_equal(list(score([], word, words)),
+    ut.assert_equal(list(Scored(word, words, [])),
                     [Score(Word('though'), score=1.0), Score(Word('they'), score=1.0), Score(Word('there'), score=1.0),
                      Score(Word('them'), score=1.0), Score(Word('their'), score=1.0), Score(Word('th'), score=1.0),
                      Score(Word('platypus'), score=1.0)])
 
     # Without scoring functions, this essentially just sorts the word objects alphabetically.
-    ut.assert_equal(list(rank([], word, words)), sorted(words))
+    ut.assert_equal(list(Scored(word, words, []).rank()), sorted(words))
 
     scored, ranked = test(count_weight=1, levenshtein_distance_weight=0)
     ut.assert_equal(list(scored),

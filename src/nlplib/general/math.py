@@ -2,24 +2,22 @@
 
 from math import log, tanh
 
-__all__ = ['normalize_value', 'normalize_values', 'avg', 'hyperbolic', 'tanh', 'dtanh']
-
-def normalize_value (value, floor, ceiling) :
-    ''' This normalizes a value between 0 and 1, assuming the value is between the floor and ceiling values. '''
-
-    try :
-        return (value - floor) / (ceiling - floor)
-    except ZeroDivisionError :
-        return 0.0
+__all__ = ['normalize_values', 'avg', 'hyperbolic', 'tanh', 'dtanh']
 
 def normalize_values (unnormalized_values) :
+    ''' This normalizes all of the values in a list of values between 0 and 1, assuming the value is between the floor
+        and ceiling values. '''
+
     unnormalized_values = list(unnormalized_values)
 
     floor_unnormalized_value   = min(unnormalized_values)
     ceiling_unnormalized_value = max(unnormalized_values)
 
-    return (normalize_value(value, floor_unnormalized_value, ceiling_unnormalized_value)
-            for value in unnormalized_values)
+    for value in unnormalized_values :
+        try :
+            yield (value - floor_unnormalized_value) / (ceiling_unnormalized_value - floor_unnormalized_value)
+        except ZeroDivisionError :
+            yield 0.0
 
 def avg (values) :
     values = list(values)
@@ -32,7 +30,7 @@ def dtanh (y) :
     return 1.0 - y * y
 
 def __test__ (ut) :
-    ut.assert_equal(normalize_value(55, 0, 100), 0.55)
+    ut.assert_equal(list(normalize_values([0, 55, 100, 344])), [0.0, 0.15988372093023256, 0.29069767441860467, 1.0])
 
 if __name__ == '__main__' :
     from nlplib.general.unit_test import UnitTest

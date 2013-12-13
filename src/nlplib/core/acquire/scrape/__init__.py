@@ -100,12 +100,12 @@ class Scraped (Base) :
             raise CouldNotOpenURL(str(exc) + '\nhappened with the url : %s' % str(url))
 
 def __test__ (ut) :
-    from nlplib.general.unit_test import Mock
+    from nlplib.general.unit_test import mock
 
-    urls = {'a' : Mock(geturl=lambda : 'a', read=lambda : 'aaa'),
-            'b' : Mock(geturl=lambda : 'b', read=lambda : 'bbb'),
-            'c' : Mock(geturl=lambda : 'c', read=lambda : 'ccc'),
-            'd' : Mock(geturl=lambda : 'd', read=lambda : 'ddd')}
+    urls = {'a' : mock(geturl=lambda : 'a', read=lambda : 'aaa'),
+            'b' : mock(geturl=lambda : 'b', read=lambda : 'bbb'),
+            'c' : mock(geturl=lambda : 'c', read=lambda : 'ccc'),
+            'd' : mock(geturl=lambda : 'd', read=lambda : 'ddd')}
 
     def mocked (cls) :
         def open_ (url) :
@@ -115,11 +115,11 @@ def __test__ (ut) :
                 except KeyError :
                     raise URLError('Something went horribly horribly wrong!!!')
 
-            return Mock(__enter__=enter, __exit__=lambda *args, **kw: None)
+            return mock(__enter__=enter, __exit__=lambda *args, **kw: None)
 
         class Mocked (cls) :
             def _make_opener (self) :
-                return Mock(open=open_)
+                return mock(open=open_)
 
         return Mocked
 

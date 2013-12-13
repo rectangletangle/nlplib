@@ -1,33 +1,32 @@
 ''' This module contains a bunch of functions which facilitate specialized iteration patterns. '''
 
 
-__all__ = ['chunked', 'windowed', 'chop']
-
-def chunked (iterable, size) :
-    ''' This breaks up an iterable into multiple chunks (tuples) of a specific size. '''
-
-    chunk = ()
-    for item in iterable :
-        chunk += (item,)
-        if len(chunk) % size == 0 :
-            yield chunk
-            chunk = ()
-
-    if len(chunk) :
-        yield chunk
+__all__ = ['windowed', 'chunked', 'chop']
 
 def windowed (iterable, size, step=1) :
     ''' This function yields a tuple of a given size then steps forward. If the step is smaller than the size, the
-        function yields overlapped tuples. '''
+        function yields "overlapped" tuples. '''
 
     if size == 1 and step == 1 :
         # A more efficient implementation for this particular special case.
         for item in iterable :
             yield (item,)
     else :
-        iterable = tuple(iterable) # Could be made more efficient, then used to implement chunked.
-        for i in range(0, len(iterable), step) :
-            yield iterable[i:i+size]
+        window = ()
+        for item in iterable :
+            window += (item,)
+            if len(window) == size :
+                yield window
+                window = window[step:]
+
+        while len(window) :
+            yield window
+            window = window[step:]
+
+def chunked (iterable, size) :
+    ''' This breaks up an iterable into multiple chunks (tuples) of a specific size. '''
+
+    return windowed(iterable, size=size, step=size)
 
 def chop (iterable, size) :
     ''' This chops off any chunks in an iterable below a certain size. '''

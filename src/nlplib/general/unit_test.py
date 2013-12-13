@@ -3,7 +3,7 @@
 import unittest
 import pkgutil
 
-__all__ = ['UnitTest', 'Mock', 'test_everything']
+__all__ = ['UnitTest', 'mock', 'test_everything']
 
 _log_switch = {None     : lambda output : output,
                'silent' : lambda output : output,
@@ -37,13 +37,16 @@ class UnitTest :
     def assert_raises (self, function, exc) :
         self._test.assertRaises(exc, function)
 
-class Mock :
-    ''' A class for mocking objects. '''
+def mock (**attrs) :
+    ''' This can be used to make a mock class. '''
 
-    def __init__ (self, **attrs) :
-        for name, value in attrs.items() :
-            setattr(self.__class__, name, value)
-            setattr(self, name, value)
+    class Mock :
+        def __init__ (self, **attrs) :
+            for name, value in attrs.items() :
+                setattr(self.__class__, name, value)
+                setattr(self, name, value)
+
+    return Mock(**attrs)
 
 def _import_everything_from (pkg) :
     for loader, name, is_pkg in pkgutil.walk_packages(pkg.__path__, onerror=lambda module : None) :
@@ -94,14 +97,14 @@ def test_everything (pkg, log='print', test_function_log='silent', log_non_imple
     ut.log('Done testing everything, hooray!')
 
 def __test__ (ut) :
-    mock = Mock(foo='foo',
-                bar=lambda : 'bar',
-                baz=lambda baz : 'baz' + baz)
+    mocked = mock(foo='foo',
+                  bar=lambda : 'bar',
+                  baz=lambda baz : 'baz' + baz)
 
-    ut.assert_equal(mock.foo, 'foo')
-    ut.assert_true(callable(mock.bar))
-    ut.assert_equal(mock.bar(), 'bar')
-    ut.assert_equal(mock.baz('baz'), 'bazbaz')
+    ut.assert_equal(mocked.foo, 'foo')
+    ut.assert_true(callable(mocked.bar))
+    ut.assert_equal(mocked.bar(), 'bar')
+    ut.assert_equal(mocked.baz('baz'), 'bazbaz')
 
 if __name__ == '__main__' :
     import nlplib

@@ -1,8 +1,9 @@
 
 
+import unittest
 import pkgutil
 
-__all__ = ['UnitTest', 'UnitTestFailure', 'test_everything']
+__all__ = ['UnitTest', 'Mock', 'test_everything']
 
 _log_switch = {None     : lambda output : output,
                'silent' : lambda output : output,
@@ -11,17 +12,10 @@ _log_switch = {None     : lambda output : output,
 def _logging_function (mode) : # This is used in <nlplib.general.time> too.
     return _log_switch.get(mode, mode)
 
-class UnitTestFailure (Exception) :
-    pass
-
 class UnitTest :
     def __init__ (self, log='silent') :
+        self._test = unittest.TestCase()
         self._logging_function = _logging_function(log)
-
-    def _assert (self, value) :
-        # The actual assert statement isn't used, because it's disabled in "optimized" Python files (.pyo).
-        if not value :
-            raise UnitTestFailure
 
     def log (self, output) :
         if callable(self._logging_function) :
@@ -31,15 +25,25 @@ class UnitTest :
     def assert_true (self, value) :
         self.log('The value is {bool}'.format(bool=bool(value)))
 
-        self._assert(value)
+        self._test.assertTrue(value)
 
     def assert_equal (self, value_0, value_1) :
         comparison = value_0 == value_1
-
         self.log('({value_0} == {value_1}) evaluates to {comparison}'.format(value_0=value_0,
                                                                              value_1=value_1,
                                                                              comparison=str(comparison).lower()))
-        self._assert(comparison)
+        self._test.assertEqual(value_0, value_1)
+
+    def assert_raises (self, function, exc) :
+        self._test.assertRaises(exc, function)
+
+class Mock :
+    ''' A class for mocking objects. '''
+
+    def __init__ (self, **attrs) :
+        for name, value in attrs.items() :
+            setattr(self.__class__, name, value)
+            setattr(self, name, value)
 
 def _import_everything_from (pkg) :
     for loader, name, is_pkg in pkgutil.walk_packages(pkg.__path__, onerror=lambda module : None) :
@@ -88,6 +92,16 @@ def test_everything (pkg, log='print', test_function_log='silent', log_non_imple
             ut.log('') # Prints a newline
 
     ut.log('Done testing everything, hooray!')
+
+def __test__ (ut) :
+    mock = Mock(foo='foo',
+                bar=lambda : 'bar',
+                baz=lambda baz : 'baz' + baz)
+
+    ut.assert_equal(mock.foo, 'foo')
+    ut.assert_true(callable(mock.bar))
+    ut.assert_equal(mock.bar(), 'bar')
+    ut.assert_equal(mock.baz('baz'), 'bazbaz')
 
 if __name__ == '__main__' :
     import nlplib

@@ -27,18 +27,6 @@ def levenshtein (seq_0, seq_1) :
 
     return distances[-1]
 
-def gram_levenshtein (gram, similar_gram) :
-    score = 0
-    count = 0
-    for word in gram :
-        for similar in similar_gram :
-            score += levenshtein(word, similar)
-            count += 1
-    try :
-        return score / count
-    except ZeroDivisionError :
-        return 0
-
 def __test__ (ut) :
     ut.assert_equal(levenshtein('hello', 'hello'), 0)
     ut.assert_equal(levenshtein('hello', 'helo'), 1)

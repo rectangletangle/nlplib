@@ -86,13 +86,12 @@ class Scored (Base) :
         self.weighted_scoring_functions = weighted_scoring_functions
 
     def __iter__ (self) :
-        # todo : This probably could be done in a more efficient manner.
-        sorted_by_objects_only = sorted(self.scores(), key=lambda score : score.object)
-        return iter(sorted(sorted_by_objects_only, reverse=True))
+        scores = [Score(similar_object) for similar_object in self.similar_objects]
+        self._calculate_subscores(scores)
+        return self._calculate_scores(scores)
 
-    def calculate_subscores (self, scores) :
+    def _calculate_subscores (self, scores) :
         for scoring_function in self.weighted_scoring_functions :
-
             unnormalized_subscores = (scoring_function(self.object, score.object)
                                       for score in scores)
 
@@ -101,8 +100,7 @@ class Scored (Base) :
             for score, normalized_subscore in zip(scores, normalized_subscores) :
                 score.subscores[scoring_function] = scoring_function.adjust_orientation(normalized_subscore)
 
-    def calculate_scores (self, scores) :
-
+    def _calculate_scores (self, scores) :
         total_of_function_weights = sum(scoring_function.weight
                                         for scoring_function in self.weighted_scoring_functions)
 
@@ -118,21 +116,15 @@ class Scored (Base) :
 
             yield score
 
-    def scores (self) :
-        scores = [Score(similar_object) for similar_object in self.similar_objects]
+    def sorted (self) :
+        # todo : This probably could be done in a more efficient manner.
+        sorted_by_objects_only = sorted(self, key=lambda score : score.object)
+        return sorted(sorted_by_objects_only, reverse=True)
 
-        try :
-            self.calculate_subscores(scores)
-        except ValueError :
-            # This happens if the <scores> list is empty.
-            return scores
-        else :
-            return self.calculate_scores(scores)
-
-    def rank (self) :
+    def ranked (self) :
         ''' This returns objects ordered by how high their score was. '''
 
-        for scored in self :
+        for scored in self.sorted() :
             yield scored.object
 
 def weighted (function, *args, **kw) :
@@ -164,31 +156,34 @@ def __test__ (ut) :
         args = (word, words, [weighted_levenshtein_distance, weighted_count])
 
         scored = Scored(*args)
-        return (scored, scored.rank())
+        return (scored.sorted(), scored.ranked())
 
     # No scoring functions, means everything is a perfect match.
-    ut.assert_equal(list(Scored(word, words, [])),
+    ut.assert_equal(Scored(word, words, []).sorted(),
                     [Score(Word('though'), score=1.0), Score(Word('they'), score=1.0), Score(Word('there'), score=1.0),
                      Score(Word('them'), score=1.0), Score(Word('their'), score=1.0), Score(Word('th'), score=1.0),
                      Score(Word('platypus'), score=1.0)])
 
-    # Without scoring functions, this essentially just sorts the word objects alphabetically.
-    ut.assert_equal(list(Scored(word, words, []).rank()), sorted(words))
+    # Tests behavior when things are missing.
+    ut.assert_equal(list(Scored(word, [], [])), [])
+    ut.assert_equal(list(Scored(word, [], [weighted(distance.levenshtein, weight=2.0, low_is_better=True)])), [])
 
-    scored, ranked = test(count_weight=1, levenshtein_distance_weight=0)
-    ut.assert_equal(list(scored),
+    # Without scoring functions, this essentially just sorts the word objects alphabetically.
+    ut.assert_equal(list(Scored(word, words, []).ranked()), sorted(words))
+
+    sorted_, ranked = test(count_weight=1, levenshtein_distance_weight=0)
+    ut.assert_equal(sorted_,
                     [Score(Word('their'), score=1.0), Score(Word('platypus'), score=0.5959595959595959),
                      Score(Word('there'), score=0.09090909090909091), Score(Word('them'), score=0.030303030303030304),
                      Score(Word('th'), score=0.010101010101010102), Score(Word('though'), score=0.0),
                      Score(Word('they'), score=0.0)])
     ut.assert_equal(list(ranked), words)
 
-    scored, ranked = test(count_weight=0, levenshtein_distance_weight=1)
-    ut.assert_equal(list(scored),
+    sorted_, ranked = test(count_weight=0, levenshtein_distance_weight=1)
+    ut.assert_equal(sorted_,
                     [Score(Word('they'), score=1.0), Score(Word('them'), score=1.0), Score(Word('th'), score=1.0),
                      Score(Word('there'), score=0.8333333333333334), Score(Word('their'), score=0.8333333333333334),
                      Score(Word('though'), score=0.5), Score(Word('platypus'), score=0.0)])
-
     ut.assert_equal(list(ranked),
                     [Word('th'), Word('them'), Word('they'), Word('their'), Word('there'), Word('though'),
                      Word('platypus')])

@@ -6,7 +6,7 @@ from nlplib.general.math import normalize_values
 from nlplib.general import literal_representation
 from nlplib.core import Base
 
-__all__ = ['WeightedFunction', 'Score', 'Scored', 'weighted']
+__all__ = ['WeightedFunction', 'Score', 'Scored', 'ScoredAgainst', 'weighted']
 
 class WeightedFunction (Base) :
     ''' Weighted functions are functions that have an associated weight attribute. This allows for weighted scoring
@@ -77,6 +77,29 @@ class Score (Base) :
             raise self._unorderable_error()
 
 class Scored (Base) :
+    def __init__ (self, unnormalized_scores) :
+        self.unnormalized_scores = list(unnormalized_scores)
+
+    def __iter__ (self) :
+        normalized_score_values = normalize_values(score.score for score in self.unnormalized_scores)
+
+        for unnormalized_score, normalized_score_value in zip(self.unnormalized_scores, normalized_score_values) :
+            normalized_score = Score(object=unnormalized_score.object, score=normalized_score_value)
+
+            yield normalized_score
+
+    def sorted (self) :
+        # todo : This probably could be done in a more efficient manner.
+        sorted_by_objects_only = sorted(self, key=lambda score : score.object)
+        return sorted(sorted_by_objects_only, reverse=True)
+
+    def ranked (self) :
+        ''' This returns objects ordered by how high their score was. '''
+
+        for scored in self.sorted() :
+            yield scored.object
+
+class ScoredAgainst (Scored) :
     ''' This class is used to generate scores normalized between 0 and 1 (1 indicating a better match), based on a
         weighted average of multiple sub-scores. '''
 
@@ -116,17 +139,6 @@ class Scored (Base) :
 
             yield score
 
-    def sorted (self) :
-        # todo : This probably could be done in a more efficient manner.
-        sorted_by_objects_only = sorted(self, key=lambda score : score.object)
-        return sorted(sorted_by_objects_only, reverse=True)
-
-    def ranked (self) :
-        ''' This returns objects ordered by how high their score was. '''
-
-        for scored in self.sorted() :
-            yield scored.object
-
 def weighted (function, *args, **kw) :
     return WeightedFunction(function, *args, **kw)
 
@@ -155,21 +167,22 @@ def __test__ (ut) :
 
         args = (word, words, [weighted_levenshtein_distance, weighted_count])
 
-        scored = Scored(*args)
+        scored = ScoredAgainst(*args)
         return (scored.sorted(), scored.ranked())
 
     # No scoring functions, means everything is a perfect match.
-    ut.assert_equal(Scored(word, words, []).sorted(),
+    ut.assert_equal(ScoredAgainst(word, words, []).sorted(),
                     [Score(Word('though'), score=1.0), Score(Word('they'), score=1.0), Score(Word('there'), score=1.0),
                      Score(Word('them'), score=1.0), Score(Word('their'), score=1.0), Score(Word('th'), score=1.0),
                      Score(Word('platypus'), score=1.0)])
 
     # Tests behavior when things are missing.
-    ut.assert_equal(list(Scored(word, [], [])), [])
-    ut.assert_equal(list(Scored(word, [], [weighted(distance.levenshtein, weight=2.0, low_is_better=True)])), [])
+    ut.assert_equal(list(ScoredAgainst(word, [], [])), [])
+    ut.assert_equal(list(ScoredAgainst(word, [],
+                    [weighted(distance.levenshtein, weight=2.0, low_is_better=True)])), [])
 
     # Without scoring functions, this essentially just sorts the word objects alphabetically.
-    ut.assert_equal(list(Scored(word, words, []).ranked()), sorted(words))
+    ut.assert_equal(list(ScoredAgainst(word, words, []).ranked()), sorted(words))
 
     sorted_, ranked = test(count_weight=1, levenshtein_distance_weight=0)
     ut.assert_equal(sorted_,

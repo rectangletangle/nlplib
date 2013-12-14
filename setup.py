@@ -44,7 +44,7 @@ packages = ['nlplib',
             'nlplib.core.score.metric',
             'nlplib.core.control',
             'nlplib.core.control.neural_network',
-            'nlplib.ext',
+            'nlplib.exterior',
             'nlplib.general',
             'nlplib.data',
             'nlplib.scripts']

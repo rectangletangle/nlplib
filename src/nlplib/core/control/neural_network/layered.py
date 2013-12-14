@@ -1,4 +1,5 @@
 
+
 from nlplib.core.control.neural_network.base import NeuralNetworkDependent
 from nlplib.core.model import Link, Node, IONode
 from nlplib.general.iter import windowed, chop
@@ -45,8 +46,12 @@ class Layer (NeuralNetworkDependent) :
         return node
 
 class IOLayer (Layer) :
+    def __init__ (self, session, neural_network, layer_index, is_input, *args, **kw) :
+        super().__init__(session, neural_network, layer_index, *args, **kw)
+        self.is_input = is_input
+
     def add (self, seq) :
-        io_node = self.session.add(IONode(self.neural_network, seq, layer_index=self.layer_index))
+        io_node = self.session.add(IONode(self.neural_network, seq, self.is_input, layer_index=self.layer_index))
         self.nodes.append(io_node)
         return io_node
 
@@ -81,20 +86,13 @@ class MakeLayeredNeuralNetwork (NeuralNetworkDependent) :
         super().__init__(session, neural_network)
         self.structure = _LayeredStructure(layer_config)
 
-    def link_up (self, layers) :
-        size = 2
-        for input_layer, output_layer in chop(windowed(layers, size=size, step=1), size) :
-            for input_node in input_layer :
-                for output_node in output_layer :
-                    self.session.add(Link(self.neural_network, input_node, output_node, strength=0.2))
-
-    def make_layers (self) :
-        yield IOLayer(self.session, self.neural_network, self.structure.input_layer_index())
+    def layers (self) :
+        yield IOLayer(self.session, self.neural_network, self.structure.input_layer_index(), True)
 
         for layer_index in self.structure.hidden_layer_indexes() :
             yield Layer(self.session, self.neural_network, layer_index)
 
-        yield IOLayer(self.session, self.neural_network, self.structure.output_layer_index())
+        yield IOLayer(self.session, self.neural_network, self.structure.output_layer_index(), False)
 
     def add_nodes (self, layers) :
         for config, layer in zip(self.structure.layer_config, layers) :
@@ -105,22 +103,29 @@ class MakeLayeredNeuralNetwork (NeuralNetworkDependent) :
 
             yield layer
 
+    def link_up (self, layers) :
+        size = 2
+        for input_layer, output_layer in chop(windowed(layers, size=size, step=1), size) :
+            for input_node in input_layer :
+                for output_node in output_layer :
+                    self.session.add(Link(self.neural_network, input_node, output_node, strength=0.2))
+
     def __call__ (self) :
-        self.link_up(self.add_nodes(self.make_layers()))
+        self.link_up(self.add_nodes(self.layers()))
 
 def _test_layered_structure (ut) :
     structure = _LayeredStructure((static(1), 1))
-    
+
     ut.assert_equal(list(structure.hidden_layer_indexes()), [])
 
     structure = _LayeredStructure(static(1) for _ in range(3))
-    
+
     ut.assert_equal(list(structure.hidden_layer_indexes()), [1] )
     ut.assert_equal(structure.output_layer_index(),         2   )
     ut.assert_equal(structure.input_layer_index(),          0   )
 
     structure = _LayeredStructure(static(2) for _ in range(4))
-    
+
     ut.assert_equal(list(structure.hidden_layer_indexes()), [1, 2] )
     ut.assert_equal(structure.output_layer_index(),         3      )
     ut.assert_equal(structure.input_layer_index(),          0      )

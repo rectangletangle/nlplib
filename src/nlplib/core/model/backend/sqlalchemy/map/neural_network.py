@@ -1,8 +1,9 @@
 ''' This module outlines how neural network related models are mapped to their respective SQLAlchemy tables. '''
 
 
-from sqlalchemy.orm import relationship, column_property
-from sqlalchemy import Column, Integer, Float, String, ForeignKey
+from sqlalchemy.orm import relationship, column_property, foreign
+from sqlalchemy.sql import and_, not_
+from sqlalchemy import Column, Boolean, Integer, Float, String, ForeignKey
 
 from nlplib.core.model.backend.sqlalchemy.map.base import ClassMapper
 from nlplib.core.model.neural_network import NeuralNetwork, NeuralNetworkElement, Link, Node, IONode
@@ -16,12 +17,26 @@ class NeuralNetworkMapper (ClassMapper) :
                 Column('name', String, unique=True, nullable=False))
 
     def mapper_kw (self) :
-        return {'properties' : {'elements' : relationship(self.classes['neural_network_element'],
-                                                          backref='neural_network'),
-                                'links'    : relationship(self.classes['link']),
-                                'nodes'    : relationship(self.classes['node']),
-                                'io_nodes' : relationship(self.classes['io_node']),
-                                '_id'      : self.table.c.id}}
+        io_node_cls   = self.classes['io_node']
+        io_node_table = self.tables['io_node']
+        element_table = self.tables['neural_network_element']
+
+        input_relation = relationship(io_node_cls,
+                                      primaryjoin=and_(self.table.c.id==foreign(element_table.c.neural_network_id),
+                                                       io_node_table.c.is_input))
+
+        output_relation = relationship(io_node_cls,
+                                       primaryjoin=and_(self.table.c.id==foreign(element_table.c.neural_network_id),
+                                                        not_(io_node_table.c.is_input)))
+
+        return {'properties' : {'elements'     : relationship(self.classes['neural_network_element'],
+                                                              backref='neural_network'),
+                                'links'        : relationship(self.classes['link']),
+                                'nodes'        : relationship(self.classes['node']),
+                                'io_nodes'     : relationship(self.classes['io_node']),
+                                'input_nodes'  : input_relation,
+                                'output_nodes' : output_relation,
+                                '_id'          : self.table.c.id}}
 
 class NeuralNetworkElementMapper (ClassMapper) :
     cls  = NeuralNetworkElement
@@ -92,7 +107,8 @@ class IONodeMapper (ClassMapper) :
 
     def columns (self) :
         return (Column('id', Integer, ForeignKey('node.id'), primary_key=True),
-                Column('seq_id', Integer, ForeignKey('seq.id'), nullable=False))
+                Column('seq_id', Integer, ForeignKey('seq.id'), nullable=False),
+                Column('is_input', Boolean, nullable=False))
 
     def mapper_kw (self) :
         return {'properties' : {'seq'     : relationship(self.classes['seq']),

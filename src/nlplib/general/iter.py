@@ -1,10 +1,12 @@
 ''' This module contains a bunch of functions which facilitate specialized iteration patterns. '''
 
 
-__all__ = ['windowed', 'chunked', 'chop']
+import itertools
+
+__all__ = ['windowed', 'chunked', 'chop', 'generates']
 
 def windowed (iterable, size, step=1) :
-    ''' This function yields a tuple of a given size then steps forward. If the step is smaller than the size, the
+    ''' This function yields a tuple of a given size, then steps forward. If the step is smaller than the size, the
         function yields "overlapped" tuples. '''
 
     if size == 1 and step == 1 :
@@ -39,6 +41,18 @@ def chop (iterable, size) :
         else :
             yield chunk
 
+def generates (generator) :
+    ''' If a generator doesn't generate anything this returns <None>, otherwise it returns an equivalent generator. '''
+
+    iterable = iter(generator)
+
+    try :
+        first = next(iterable)
+    except StopIteration :
+        return None
+    else :
+        return itertools.chain((first,), iterable)
+
 def __test__ (ut) :
     ut.assert_equal(list(chunked(range(7), 3)), [(0, 1, 2), (3, 4, 5), (6,)] )
     ut.assert_equal(list(chunked(range(6), 3)), [(0, 1, 2), (3, 4, 5)]       )
@@ -52,6 +66,21 @@ def __test__ (ut) :
     size = 3
     ut.assert_equal(list(chop(windowed(range(4), size, 1), size)), [(0, 1, 2), (1, 2, 3)] )
     ut.assert_equal(list(chop(chunked(range(7), size), size)),     [(0, 1, 2), (3, 4, 5)] )
+
+    def generates_something () :
+        i = 0
+        while True :
+            yield i
+            i += 1
+
+    def generates_nothing () :
+        for _ in () :
+            yield
+
+    ut.assert_true(generates(generates_nothing()) is None)
+    ut.assert_doesnt_raise(lambda : next(generates(generates_something())), StopIteration)
+    ut.assert_doesnt_raise(lambda : next(generates_something()), StopIteration)
+    ut.assert_raises(lambda : next(generates_nothing()), StopIteration)
 
 if __name__ == '__main__' :
     from nlplib.general.unit_test import UnitTest

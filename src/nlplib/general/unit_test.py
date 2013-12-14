@@ -37,6 +37,20 @@ class UnitTest :
     def assert_raises (self, function, exc) :
         self._test.assertRaises(exc, function)
 
+    def assert_doesnt_raise (self, function, exc) :
+        ''' This asserts that a function doesn't raise a *specific* exception type. Exceptions that <exc> inherits from
+            and other exceptions will be treated as passing (they are also thrown silently). '''
+
+        try :
+            function()
+        except exc as exc_instance :
+            if type(exc_instance) is exc :
+                msg = ("The function <{function_name}> is throwing the exception <{exc_name}>. It probably shouldn't "
+                       'be doing this.').format(function_name=function.__name__, exc_name=exc.__name__)
+                raise self._test.failureException(msg)
+        except :
+            pass
+
 def mock (**attrs) :
     ''' This can be used to make a mock class. '''
 
@@ -105,6 +119,23 @@ def __test__ (ut) :
     ut.assert_true(callable(mocked.bar))
     ut.assert_equal(mocked.bar(), 'bar')
     ut.assert_equal(mocked.baz('baz'), 'bazbaz')
+
+    class Foo (Exception) :
+        pass
+
+    class Bar (Exception) :
+        pass
+
+    class Baz (Bar) :
+        pass
+
+    def raise_bar () :
+        raise Bar
+
+    ut.assert_raises(lambda : ut.assert_doesnt_raise(raise_bar, Bar), AssertionError)
+    ut.assert_doesnt_raise(raise_bar, Exception)
+    ut.assert_doesnt_raise(raise_bar, Foo)
+    ut.assert_doesnt_raise(raise_bar, Baz)
 
 if __name__ == '__main__' :
     import nlplib

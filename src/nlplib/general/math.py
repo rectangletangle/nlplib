@@ -17,7 +17,7 @@ def normalize_values (unnormalized_values) :
         try :
             yield (value - floor_unnormalized_value) / (ceiling_unnormalized_value - floor_unnormalized_value)
         except ZeroDivisionError :
-            yield 0.0
+            yield 1.0
 
 def avg (values) :
     values = list(values)
@@ -31,6 +31,7 @@ def dtanh (y) :
 
 def __test__ (ut) :
     ut.assert_equal(list(normalize_values([0, 55, 100, 344])), [0.0, 0.15988372093023256, 0.29069767441860467, 1.0])
+    ut.assert_equal(list(normalize_values([44, 44, 44])), [1.0, 1.0, 1.0])
 
 if __name__ == '__main__' :
     from nlplib.general.unit_test import UnitTest

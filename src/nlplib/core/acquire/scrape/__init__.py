@@ -140,7 +140,7 @@ def __test__ (ut) :
     ut.assert_raises(lambda : set(cant_scrape), CouldNotOpenURL)
 
     safe_scrape = mocked(Scraped)(['e'], silent=True)
-    set(safe_scrape) # This shouldn't throw any <CouldNotOpenURL> exceptions.
+    ut.assert_doesnt_raise(lambda : set(safe_scrape), CouldNotOpenURL)
 
     scraped = mocked(Scraped)(['a', 'a', 'a'], revisit=True)
     ut.assert_equal(list(scraped), [Response('a', 'aaa', 'a')] * 3)

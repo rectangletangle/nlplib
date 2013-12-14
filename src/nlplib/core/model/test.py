@@ -22,7 +22,7 @@ def _test_neural_network_model (ut) :
         def make_nn (nn, word_string, strength) :
 
             node    = session.add(Node(nn, layer_index=1))
-            io_node = session.add(IONode(nn, session.access.word(word_string), layer_index=0))
+            io_node = session.add(IONode(nn, session.access.word(word_string), layer_index=0, is_input=True))
 
             session.add(Link(nn, node, io_node, strength))
 
@@ -63,14 +63,14 @@ def _test_neural_network_links (ut) :
         nn = session.access.neural_network('foo')
         word = session.access.word('bar')
 
-        nodes = [IONode(nn, seq=word, layer_index=0),
-                 IONode(nn, seq=word, layer_index=0),
+        nodes = [IONode(nn, seq=word, layer_index=0, is_input=True),
+                 IONode(nn, seq=word, layer_index=0, is_input=True),
 
                  Node(nn, layer_index=1),
                  Node(nn, layer_index=1),
 
-                 IONode(nn, seq=word, layer_index=2),
-                 IONode(nn, seq=word, layer_index=2)]
+                 IONode(nn, seq=word, layer_index=2, is_input=False),
+                 IONode(nn, seq=word, layer_index=2, is_input=False)]
 
         nn.nodes.extend(nodes)
 

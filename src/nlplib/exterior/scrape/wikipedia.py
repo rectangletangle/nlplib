@@ -1,9 +1,10 @@
 
 
 from datetime import datetime
+from itertools import count
 
-from nlplib.core.acquire.scrape.parse import parse_html
-from nlplib.core.acquire.scrape import Scraped
+from nlplib.exterior.scrape.parse import parse_html
+from nlplib.core.scrape import scraper, Scraped
 from nlplib.core.process.token import split
 from nlplib.core.model import Document
 from nlplib.general.thread import simultaneously
@@ -11,8 +12,12 @@ from nlplib.general.thread import simultaneously
 __all__ = ['RandomlyScrapedFromWikipedia', 'gather_documents']
 
 class RandomlyScrapedFromWikipedia (Scraped) :
+
+    url = 'http://en.wikipedia.org/wiki/Special:Random'
+
     def __init__ (self, amount=1, silent=True, *args, **kw) :
-        urls = (r'http://en.wikipedia.org/wiki/Special:Random' for _ in range(amount))
+        counter = count() if amount in {'inf', float('inf'), -1} else range(amount)
+        urls = (self.url for _ in counter)
         super().__init__(urls, silent=silent, *args, **kw)
 
 def _flatten (iterable) :
@@ -43,3 +48,5 @@ def __demo__ () :
 if __name__ == '__main__' :
     __demo__()
 
+    for d in randomly_scraped_from_wikipedia(-1) :
+        print(repr(d))

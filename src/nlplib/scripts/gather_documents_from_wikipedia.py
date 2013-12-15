@@ -1,6 +1,6 @@
 
 
-from nlplib.core.acquire.scrape.wikipedia import gather_documents
+from nlplib.exterior.scrape.wikipedia import gather_documents
 from nlplib.core.model import Document
 from nlplib.data import builtin_db
 

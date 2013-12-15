@@ -53,6 +53,13 @@ class Database (Base) :
 
         raise NotImplementedError
 
+    def sessional (self, function) : # todo : merge this fn with self.session
+        def wrapper (*args, **kw) :
+            with self as session :
+                result = function(session, *args, **kw)
+            return result
+        return wrapper
+
 def abstract_test (ut, db_cls) :
     from nlplib.core.model import Word
 
@@ -79,4 +86,16 @@ def abstract_test (ut, db_cls) :
 
     with db as session :
         ut.assert_equal(sorted(session.access.all_words()), [Word('x'), Word('y'), Word('z')])
+
+    db = db_cls()
+
+    @db.sessional
+    def foo (session, *args) :
+        for arg in args :
+            session.add(Word(arg))
+
+    foo('0', '1', '2')
+
+    with db as session :
+        ut.assert_equal(sorted(session.access.all_words()), [Word('0'), Word('1'), Word('2')])
 

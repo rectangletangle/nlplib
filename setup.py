@@ -30,8 +30,6 @@ from src import nlplib
 
 packages = ['nlplib',
             'nlplib.core',
-            'nlplib.core.acquire',
-            'nlplib.core.acquire.scrape',
             'nlplib.core.model',
             'nlplib.core.model.backend',
             'nlplib.core.model.backend.abstract',
@@ -45,6 +43,7 @@ packages = ['nlplib',
             'nlplib.core.control',
             'nlplib.core.control.neural_network',
             'nlplib.exterior',
+            'nlplib.exterior.scrape',
             'nlplib.general',
             'nlplib.data',
             'nlplib.scripts']

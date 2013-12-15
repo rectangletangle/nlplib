@@ -8,7 +8,7 @@ from nlplib.general import pretty_truncate
 from nlplib.core.exc import NLPLibError
 from nlplib.core import Base
 
-__all__ = ['CouldNotOpenURL', 'Response', 'Scraped']
+__all__ = ['CouldNotOpenURL', 'Response', 'Scraped', 'scraper']
 
 class CouldNotOpenURL (NLPLibError) :
     pass
@@ -40,13 +40,16 @@ class Response (Base) :
 class Scraped (Base) :
     ''' A base web scraper class. '''
 
-    def __init__ (self, urls, revisit=False, silent=False, chunk_size=20, max_workers=None, user_agent='nlplib') :
+    def __init__ (self, urls, revisit=True, silent=False, chunk_size=5, max_workers=None, user_agent='nlplib',
+                  serialize=False) :
+
         self.urls = urls
         self.revisit = revisit
         self.silent = silent
         self.chunk_size = chunk_size
         self.max_workers = max_workers
         self.user_agent = user_agent
+        self.serialize = serialize
 
         self._visited_urls = set()
 
@@ -61,7 +64,11 @@ class Scraped (Base) :
             scraping_functions = (lambda url=url : responses.append(self._scrape(opener, url))
                                   for url in urls)
 
-            simultaneously(scraping_functions, max_workers=self.max_workers)
+            if not self.serialize :
+                simultaneously(scraping_functions, max_workers=self.max_workers)
+            else :
+                for function in scraping_functions :
+                    function()
 
             for response in responses :
                 if response is not None :
@@ -98,6 +105,11 @@ class Scraped (Base) :
     def could_not_open_url (self, exc, url) :
         if not self.silent :
             raise CouldNotOpenURL(str(exc) + '\nhappened with the url : %s' % str(url))
+
+def scraper (*args, cls=Scraped, **kw) :
+    def wrapper (generator) :
+        return lambda *wrapped_args, **wrapped_kw : cls(generator(*wrapped_args, **wrapped_kw), *args, **kw)
+    return wrapper
 
 def __test__ (ut) :
     from nlplib.general.unit_test import mock
@@ -148,9 +160,26 @@ def __test__ (ut) :
     scraped = mocked(Scraped)(['a', 'a', 'a'], revisit=False)
     ut.assert_equal(list(scraped), [Response('a', 'aaa', 'a')])
 
+    @scraper(cls=mocked(Scraped), revisit=True)
+    def foo () :
+        while True :
+            for url in ['a', 'b'] :
+                yield url
+
+    for i, response in enumerate(foo()) :
+        # todo : unit test
+        if i == 10 :
+            break
+
 def __demo__ () :
-    print('\n\n'.join(response.url + '\n' + pretty_truncate(response.text)
-                      for response in Scraped(['http://python.org', 'http://wikipedia.org'], silent=True)))
+    @scraper(silent=True)
+    def scrape () :
+        yield 'http://www.wikipedia.org'
+        yield 'http://python.org'
+        yield 'http://missingparenthesis.com/foobar'
+
+    for response in scrape() :
+        print(repr(response))
 
 if __name__ == '__main__' :
     from nlplib.general.unit_test import UnitTest

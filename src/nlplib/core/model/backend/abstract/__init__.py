@@ -36,7 +36,7 @@ class Database (Base) :
         return super().__repr__(self.path)
 
     def __enter__ (self) :
-        session = self.session()
+        session = self._make_session()
         self._sessions_currently_open.append(session)
         return session.__enter__()
 
@@ -47,18 +47,20 @@ class Database (Base) :
             pass
 
     @contextmanager
-    def session (self) :
+    def _make_session (self) :
+        raise NotImplementedError
+
+    def session (self, function=None) :
         ''' This allows for objects within the database to be accessed and manipulated within a transaction like
             context. '''
 
-        raise NotImplementedError
-
-    def sessional (self, function) : # todo : merge this fn with self.session
-        def wrapper (*args, **kw) :
-            with self as session :
-                result = function(session, *args, **kw)
-            return result
-        return wrapper
+        if callable(function) :
+            def wrapper (*args, **kw) :
+                with self._make_session() as session :
+                    return function(session, *args, **kw)
+            return wrapper
+        else :
+            return self._make_session()
 
 def abstract_test (ut, db_cls) :
     from nlplib.core.model import Word
@@ -89,7 +91,7 @@ def abstract_test (ut, db_cls) :
 
     db = db_cls()
 
-    @db.sessional
+    @db.session
     def foo (session, *args) :
         for arg in args :
             session.add(Word(arg))
@@ -98,4 +100,12 @@ def abstract_test (ut, db_cls) :
 
     with db as session :
         ut.assert_equal(sorted(session.access.all_words()), [Word('0'), Word('1'), Word('2')])
+
+    db = db_cls()
+
+    with db.session() as session :
+        session.add_many(Word(number) for number in '345')
+
+    with db.session() as session :
+        ut.assert_equal(sorted(session.access.all_words()), [Word('3'), Word('4'), Word('5')])
 

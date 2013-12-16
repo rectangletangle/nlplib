@@ -62,35 +62,43 @@ class Parsed (Base) :
         for i in range(min_gram_length, len(tuple_) + 1) :
             yield tuple_[:i]
 
+    def _sub_grams (self, tuple_) :
+        min_gram_length = 1
+        for i in range(len(tuple_), min_gram_length-1, -1) :
+            yield tuple_[:i]
+
     def _parse (self) :
         stems_and_tokens = self._stem_tokens(self.tokenize(self.document))
         max_gram_length = self.max_gram_length
 
-        if max_gram_length == 1 :
-            # This is a special case, that's done a bit more efficiently.
-            for stem, token in stems_and_tokens :
-                yield ((stem,), (token,))
-        else :
-            for window in windowed(stems_and_tokens, size=max_gram_length) :
-                for stems_and_tokens in self._sub_grams(window) :
-                    stems, tokens = zip(*stems_and_tokens)
+        for window in windowed(stems_and_tokens, size=max_gram_length) :
+            for stems_and_tokens in self._sub_grams(window) :
+                stems, tokens = zip(*stems_and_tokens)
+
+                try :
+                    self._check_if_is_stop_seq(stems)
+                except HitStopSeq :
+                    break
+                else :
                     yield (stems, tokens)
 
-    def _check_if_is_stop_seq (self, string_or_gram_tuple, seq) :
+    def _check_if_is_stop_seq (self, gram_tuple) :
+        if len(gram_tuple) == 1 :
+            string_or_gram_tuple = gram_tuple[0]
+        else :
+            string_or_gram_tuple = gram_tuple
+
         if string_or_gram_tuple in self.stop_seqs :
             raise HitStopSeq
-        else :
-            return seq
 
     def _gram (self, gram_tuple) :
-        gram = self._check_if_is_stop_seq(gram_tuple, Gram(gram_tuple, count=0))
         if self.yield_grams :
-            return gram
+            return Gram(gram_tuple, count=0)
         else :
             raise DontParse
 
     def _word (self, word_string) :
-        return self._check_if_is_stop_seq(word_string, Word(word_string, count=0))
+        return Word(word_string, count=0)
 
     def _seq (self, strings) :
         if len(strings) == 1 :
@@ -155,15 +163,15 @@ def __test__ (ut) :
     ut.assert_equal(parsed_string(string), 'and the cat ate the food and')
 
     # Testing with stop sequences
-
     ut.assert_equal(parsed_string(string, stop_seqs={'the', 'ate'}), 'and cat food and')
 
     # No actual stemming is done if the <str> function is used in place of a stemmer.
     ut.assert_equal(parsed_string(string, stem=str, stop_seqs={'The', 'ate'}), 'And cat the foOd and')
 
-    # todo : make this pass, words shouldn't be yielded if they're in the context of a stop gram.
-    #string = 'the and the and if the and the the and platypus the'
-    #ut.assert_equal(parsed_string(string, max_gram_length=2, yield_grams=False, stop_seqs={('and', 'the'), 'platypus'}), 'the and if the the and the')
+    string = 'the and the and if the and the the and platypus the'
+    ut.assert_equal(parsed_string(string, max_gram_length=2, yield_grams=False,
+                                  stop_seqs={('and', 'the'), 'platypus'}),
+                    'the the and if the the the and the')
 
 if __name__ == '__main__' :
     from nlplib.general.unit_test import UnitTest

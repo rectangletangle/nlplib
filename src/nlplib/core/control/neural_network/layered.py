@@ -105,10 +105,20 @@ class MakeLayeredNeuralNetwork (NeuralNetworkDependent) :
 
     def link_up (self, layers) :
         size = 2
+
+        def strength () :
+            yield 1.0 / 2
+            while True :
+                yield 0.1
+
+        s = strength()
+
         for input_layer, output_layer in chop(windowed(layers, size=size, step=1), size) :
+            ls = next(s)
+
             for input_node in input_layer :
                 for output_node in output_layer :
-                    self.session.add(Link(self.neural_network, input_node, output_node, strength=0.2))
+                    self.session.add(Link(self.neural_network, input_node, output_node, strength=ls))
 
     def __call__ (self) :
         self.link_up(self.add_nodes(self.layers()))

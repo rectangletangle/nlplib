@@ -53,7 +53,7 @@ class Database (abstract.Database) :
         default_mapped.metadata.create_all(self._sqlalchemy_engine)
 
     @contextmanager
-    def session (self) :
+    def _make_session (self) :
         sqlalchemy_session = self._make_sqlalchemy_session()
         try :
             yield Session(sqlalchemy_session)

@@ -48,7 +48,7 @@ class FeedForward (NeuralNetworkDependent) :
             yield output_node
 
 class Backpropagate (NeuralNetworkDependent) :
-    def back_propagate(self, targets, n=0.5) :
+    def back_propagate(self, targets, n=0.1) :
         raise DeprecationWarning
         input_nodes  = self.nodes(0)
         hidden_nodes = self.nodes(1)
@@ -102,8 +102,10 @@ class Backpropagate (NeuralNetworkDependent) :
 
             yield (input_node, math.dtanh(input_node.current) * error)
 
-    def _backpropagate (self, correct, n=0.5) :
+    def _backpropagate (self, correct, n=0.1) :
+
         output_deltas = dict(self._calculate_output_deltas(correct))
+
         for output_layer, input_layer in chop(windowed(reversed(self.neural_network), 2), 2) :
             old_deltas = output_deltas
             output_deltas = dict(self._calculate_deltas(input_layer, output_layer, output_deltas))
@@ -111,7 +113,6 @@ class Backpropagate (NeuralNetworkDependent) :
             for input_node in input_layer :
                 for output_node in output_layer :
                     change = old_deltas[output_node] * input_node.current
-
                     self.session.access.link(self.neural_network, input_node, output_node).strength += n * change
 
     def _correct (self) :
@@ -135,7 +136,7 @@ class Prediction (NeuralNetworkDependent) :
 class Train (NeuralNetworkDependent) :
     pass
 
-def __demo__ () :
+def __test__ (ut) :
     from nlplib.core.control.neural_network.layered import MakeLayeredNeuralNetwork, static_io, static
     from nlplib.core.model import Database, NeuralNetwork, Word
 
@@ -148,30 +149,73 @@ def __demo__ () :
             session.add(Word(char))
 
     with db as session :
-        config = (static_io(session.access.words('a b c')),
+        config = (static_io(session.access.words('a b')),
                   static(3),
                   static_io(session.access.words('d e f')))
 
         MakeLayeredNeuralNetwork(session, session.access.neural_network('foo'), config)()
 
+
+    def as_floats (prediction) :
+        return sorted(float(score) for score in prediction)
+
     with db as session :
         nn = session.access.neural_network('foo')
+        #ut.assert_equal(as_floats(Prediction(session, nn, session.access.words('a b'))),
+        #                [0.07601250837541615, 0.07601250837541615, 0.07601250837541615])
 
-        train =  []
-        #train += [('a b', 'f') for _ in range(40)]
-        #train += [('b', 'e') for _ in range(1)]
-        train += [('a', 'd') for _ in range(1)]
 
-        for ins, outs in train :
-            Backpropagate(session, nn,
-                          session.access.nodes_for_seqs(nn, session.access.words(ins)),
-                          session.access.nodes_for_seqs(nn, session.access.words(outs)))()
+    with db as session :
+        config = (static_io(session.access.words('a b c')),
+                  static(3),
+                  static_io(session.access.words('d e f')))
 
-##    with db as session :
+        bar = session.add(NeuralNetwork('bar'))
+
+        MakeLayeredNeuralNetwork(session, bar, config)()
+
+
+    with db as session :
+        bar = session.access.neural_network('bar')
+
+        a, b, c, d, e, f = session.access.nodes_for_seqs(bar, session.access.words('a b c d e f'))
+
+        for _ in range(20) : # 30
+            Backpropagate(session, bar, [a, c], [d])()
+            Backpropagate(session, bar, [a, b], [f])()
+            Backpropagate(session, bar, [a],    [e])()
+##
+##        wWorld, wRiver, wBank = 101, 102, 103
+##        uWorldBank, uRiver, uEarth = 201, 202, 203
+##
+##        print(sorted(Prediction(session, bar, session.access.words('a c'))))
+##        [0.8435967735300776, 0.011059223531796199, 0.017992770688108367]
+##
+##        print(sorted(Prediction(session, bar, session.access.words('b c'))))
+##        [-0.028282207517584094, 0.8775955174169334, 0.0032322039490162353]
+##
+##        print(sorted(Prediction(session, bar, session.access.words('a'))))
+##        [0.8459277961565395, -0.011590385221469553, -0.8361964445052618]
+
+        for link in bar.links :
+            print(link)
+
+
+
+    ##    with db as session :
 ##        nn = session.access.neural_network('foo')
-##        for q in ('a  ', 'b  ', 'a b') :
-##            print(q, list(Scored(Prediction(session, nn, session.access.words(q))).sorted()))
+##
+##        train =  []
+##        #train += [('a b', 'f') for _ in range(40)]
+##        #train += [('b', 'e') for _ in range(1)]
+##        train += [('a', 'd') for _ in range(1)]
+##
+##        for ins, outs in train :
+##            Backpropagate(session, nn,
+##                          session.access.nodes_for_seqs(nn, session.access.words(ins)),
+##                          session.access.nodes_for_seqs(nn, session.access.words(outs)))()
 
 if __name__ == '__main__' :
-    __demo__()
+    from nlplib.general.unit_test import UnitTest
+    __test__(UnitTest())
 

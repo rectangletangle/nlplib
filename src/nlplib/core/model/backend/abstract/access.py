@@ -91,10 +91,7 @@ class Access (SessionDependent) :
     def neural_network (self, name) :
         raise NotImplementedError
 
-    def nodes_in_layer (self, neural_network, layer_index) :
-        raise NotImplementedError
-
-    def nodes_for_seqs (self, seqs, layer_index=None) :
+    def nodes_for_seqs (self, seqs) :
         raise NotImplementedError
 
     def link (self, neural_network, input_node, output_node) :

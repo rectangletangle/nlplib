@@ -2,7 +2,7 @@
 
 from itertools import chain
 
-__all__ = ['pretty_truncate', 'nonliteral_representation', 'literal_representation']
+__all__ = ['pretty_truncate', 'pretty_float', 'nonliteral_representation', 'literal_representation']
 
 def pretty_truncate (string, cutoff=100, tail='...') :
     ''' This limits the length of a string in a somewhat aesthetically pleasing fashion. '''
@@ -12,6 +12,9 @@ def pretty_truncate (string, cutoff=100, tail='...') :
     except TypeError :
         # This happens if <cutoff> is None
         return string
+
+def pretty_float (value) :
+    return round(float(value), 5)
 
 def _representation_args_and_kw (*args, **kw) :
     # <sorted> is used to make the keyword argument order deterministic.

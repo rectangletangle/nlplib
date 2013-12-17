@@ -1,7 +1,7 @@
 ''' This module outlines how neural network related models are mapped to their respective SQLAlchemy tables. '''
 
-
-from sqlalchemy.orm import relationship, column_property, foreign
+from sqlalchemy.orm.collections import attribute_mapped_collection
+from sqlalchemy.orm import relationship, column_property, foreign, backref
 from sqlalchemy.sql import and_, not_
 from sqlalchemy import Column, Boolean, Integer, Float, String, ForeignKey
 
@@ -60,7 +60,7 @@ class LinkMapper (ClassMapper) :
 
     def columns (self) :
         return (Column('id', Integer, ForeignKey('neural_network_element.id'), primary_key=True),
-                Column('strength', Float),
+                Column('affinity', Float),
 
                 Column('input_node_id', Integer, ForeignKey('node.id'), primary_key=True),
                 Column('output_node_id', Integer, ForeignKey('node.id'), primary_key=True))
@@ -83,19 +83,24 @@ class NodeMapper (ClassMapper) :
 
     def columns (self) :
         return (Column('id', Integer, ForeignKey('neural_network_element.id'), primary_key=True),
-                Column('layer_index', Integer),
-                Column('current', Float))
+                Column('charge', Float))
 
     def mapper_kw (self) :
+        link_class = self.classes['link']
         link_table = self.tables['link']
 
-        relation = relationship(self.cls,
-                                secondary=link_table,
-                                primaryjoin=self.table.c.id==link_table.c.input_node_id,
-                                secondaryjoin=self.table.c.id==link_table.c.output_node_id,
-                                backref='input_nodes')
+        input_relation = relationship(link_class,
+                                      collection_class=attribute_mapped_collection('input_node'),
+                                      secondary=link_table,
+                                      primaryjoin=self.table.c.id==link_table.c.output_node_id)
 
-        return {'properties' : {'output_nodes' : relation,
+        output_relation = relationship(link_class,
+                                       collection_class=attribute_mapped_collection('output_node'),
+                                       secondary=link_table,
+                                       primaryjoin=self.table.c.id==link_table.c.input_node_id)
+
+        return {'properties' : {'input_nodes'  : input_relation,
+                                'output_nodes' : output_relation,
                                 '_id'          : column_property(self.table.c.id,
                                                                  self.tables['neural_network_element'].c.id)},
                 'inherits' : self.classes['neural_network_element'],

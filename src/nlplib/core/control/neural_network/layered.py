@@ -27,10 +27,8 @@ def dynamic () :
     raise NotImplementedError
 
 class Layer (NeuralNetworkDependent) :
-    def __init__ (self, session, neural_network, layer_index) :
+    def __init__ (self, session, neural_network) :
         super().__init__(session, neural_network)
-
-        self.layer_index = layer_index
 
         self.nodes = []
 
@@ -41,17 +39,17 @@ class Layer (NeuralNetworkDependent) :
         return len(self.nodes)
 
     def add (self) :
-        node = self.session.add(Node(self.neural_network, layer_index=self.layer_index))
+        node = self.session.add(Node(self.neural_network))
         self.nodes.append(node)
         return node
 
 class IOLayer (Layer) :
-    def __init__ (self, session, neural_network, layer_index, is_input, *args, **kw) :
-        super().__init__(session, neural_network, layer_index, *args, **kw)
+    def __init__ (self, session, neural_network, is_input, *args, **kw) :
+        super().__init__(session, neural_network, *args, **kw)
         self.is_input = is_input
 
     def add (self, seq) :
-        io_node = self.session.add(IONode(self.neural_network, seq, self.is_input, layer_index=self.layer_index))
+        io_node = self.session.add(IONode(self.neural_network, seq, self.is_input))
         self.nodes.append(io_node)
         return io_node
 
@@ -87,12 +85,12 @@ class MakeLayeredNeuralNetwork (NeuralNetworkDependent) :
         self.structure = _LayeredStructure(layer_config)
 
     def layers (self) :
-        yield IOLayer(self.session, self.neural_network, self.structure.input_layer_index(), True)
+        yield IOLayer(self.session, self.neural_network, True)
 
-        for layer_index in self.structure.hidden_layer_indexes() :
-            yield Layer(self.session, self.neural_network, layer_index)
+        for _ in self.structure.hidden_layer_indexes() :
+            yield Layer(self.session, self.neural_network)
 
-        yield IOLayer(self.session, self.neural_network, self.structure.output_layer_index(), False)
+        yield IOLayer(self.session, self.neural_network, False)
 
     def add_nodes (self, layers) :
         for config, layer in zip(self.structure.layer_config, layers) :
@@ -106,19 +104,19 @@ class MakeLayeredNeuralNetwork (NeuralNetworkDependent) :
     def link_up (self, layers) :
         size = 2
 
-        def strength () :
+        def affinity () :
             yield 1.0 / 2
             while True :
                 yield 0.1
 
-        s = strength()
+        s = affinity()
 
         for input_layer, output_layer in chop(windowed(layers, size=size, step=1), size) :
             ls = next(s)
 
             for input_node in input_layer :
                 for output_node in output_layer :
-                    self.session.add(Link(self.neural_network, input_node, output_node, strength=ls))
+                    self.session.add(Link(self.neural_network, input_node, output_node, affinity=ls))
 
     def __call__ (self) :
         self.link_up(self.add_nodes(self.layers()))

@@ -19,12 +19,12 @@ def _test_neural_network_model (ut) :
     with db as session :
         nn_a, nn_b, nn_c = session.access.all_neural_networks()
 
-        def make_nn (nn, word_string, strength) :
+        def make_nn (nn, word_string, affinity) :
 
-            node    = session.add(Node(nn, layer_index=1))
-            io_node = session.add(IONode(nn, session.access.word(word_string), layer_index=0, is_input=True))
+            node    = session.add(Node(nn))
+            io_node = session.add(IONode(nn, session.access.word(word_string), is_input=True))
 
-            session.add(Link(nn, node, io_node, strength))
+            session.add(Link(nn, node, io_node, affinity))
 
         make_nn(nn_a, 'a', 0)
         make_nn(nn_a, 'b', 1)
@@ -34,12 +34,12 @@ def _test_neural_network_model (ut) :
         nn_a, nn_b, nn_c = session.access.all_neural_networks()
 
         ut.assert_equal(len(nn_a.elements), 6)
-        ut.assert_equal([link.strength for link in nn_a.links], [0, 1])
+        ut.assert_equal([link.affinity for link in nn_a.links], [0, 1])
         ut.assert_equal(len(nn_a.nodes), 4)
         ut.assert_equal([io_node.seq for io_node in nn_a.io_nodes], [Word('a'), Word('b')])
 
         ut.assert_equal(len(nn_b.elements), 3)
-        ut.assert_equal([link.strength for link in nn_b.links], [2])
+        ut.assert_equal([link.affinity for link in nn_b.links], [2])
         ut.assert_equal(len(nn_b.nodes), 2)
         ut.assert_equal([io_node.seq for io_node in nn_b.io_nodes], [Word('c')])
 
@@ -49,9 +49,6 @@ def _test_neural_network_model (ut) :
         ut.assert_equal(len(nn_c.io_nodes), 0 )
 
 def _test_neural_network_links (ut) :
-    raise DeprecationWarning
-    def get_ids (nodes) :
-        return [node.id for node in nodes]
 
     db = Database()
 
@@ -63,45 +60,23 @@ def _test_neural_network_links (ut) :
         nn = session.access.neural_network('foo')
         word = session.access.word('bar')
 
-        nodes = [IONode(nn, seq=word, layer_index=0, is_input=True),
-                 IONode(nn, seq=word, layer_index=0, is_input=True),
-
-                 Node(nn, layer_index=1),
-                 Node(nn, layer_index=1),
-
-                 IONode(nn, seq=word, layer_index=2, is_input=False),
-                 IONode(nn, seq=word, layer_index=2, is_input=False)]
-
-        nn.nodes.extend(nodes)
+        nn.nodes.extend([IONode(nn, seq=word, is_input=True), Node(nn)])
 
     with db as session :
         nn = session.access.neural_network('foo')
-        nodes = nn.nodes
+        io_node, node = nn.nodes
 
-        session.add(Link(nn, nodes[0], nodes[2]))
-        session.add(Link(nn, nodes[0], nodes[3]))
+        link = session.add(Link(nn, io_node, node))
 
-        session.add(Link(nn, nodes[1], nodes[3]))
-
-        session.add(Link(nn, nodes[3], nodes[4]))
-        session.add(Link(nn, nodes[3], nodes[5]))
-
-        ut.assert_equal(nodes[0].input_nodes, [])
-        ut.assert_equal(get_ids(nodes[0].output_nodes), [ids[2], ids[3]])
-        ut.assert_equal(nodes[1].input_nodes, [])
-        ut.assert_equal(get_ids(nodes[1].output_nodes), [ids[3]])
-        ut.assert_equal(get_ids(nodes[2].input_nodes), [ids[0]])
-        ut.assert_equal(nodes[2].output_nodes, [])
-        ut.assert_equal(get_ids(nodes[3].input_nodes), [ids[0], ids[1]])
-        ut.assert_equal(get_ids(nodes[3].output_nodes), [ids[4], ids[5]])
-        ut.assert_equal(get_ids(nodes[4].input_nodes), [ids[3]])
-        ut.assert_equal(nodes[4].output_nodes, [])
-        ut.assert_equal(get_ids(nodes[5].input_nodes), [ids[3]])
-        ut.assert_equal(nodes[5].output_nodes, [])
+        ut.assert_true(io_node.output_nodes[node] is node.input_nodes[io_node] is link)
+        ut.assert_equal(io_node.input_nodes, {})
+        ut.assert_equal(node.output_nodes, {})
+        ut.assert_equal(io_node.output_nodes, {node : link})
+        ut.assert_equal(node.input_nodes, {io_node : link})
 
 def __test__ (ut) :
     _test_neural_network_model(ut)
-    #_test_neural_network_links(ut) todo : re implement
+    _test_neural_network_links(ut)
 
 if __name__ == '__main__' :
     from nlplib.general.unit_test import UnitTest

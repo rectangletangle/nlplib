@@ -56,23 +56,14 @@ class Access (abstract.Access) :
     def neural_network (self, name) :
         return self.session._sqlalchemy_session.query(NeuralNetwork).filter_by(name=str(name)).first()
 
-    def nodes_in_layer (self, neural_network, layer_index) :
-        session = self.session._sqlalchemy_session
-        return session.query(Node).filter_by(neural_network=neural_network, layer_index=layer_index).all()
-
-    def nodes_for_seqs (self, neural_network, seqs, layer_index=None) :
+    def nodes_for_seqs (self, neural_network, seqs) :
         # todo : This probably could be made more efficient using the SQL <in> operator.
 
         query_nodes = self.session._sqlalchemy_session.query(IONode).filter_by
 
-        if layer_index is None :
-            for seq in seqs :
-                for node in query_nodes(neural_network=neural_network, seq=seq).all() :
-                    yield node
-        else :
-            for seq in seqs :
-                for node in query_nodes(neural_network=neural_network, layer_index=layer_index, seq=seq).all() :
-                    yield node
+        for seq in seqs :
+            for node in query_nodes(neural_network=neural_network, seq=seq).all() :
+                yield node
 
     def link (self, neural_network, input_node, output_node) :
         return self.session._sqlalchemy_session.query(Link).filter_by(neural_network=neural_network,

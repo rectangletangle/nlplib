@@ -3,7 +3,7 @@
 from functools import total_ordering
 
 from nlplib.general.math import normalize_values
-from nlplib.general import literal_representation
+from nlplib.general import pretty_float
 from nlplib.core import Base
 
 __all__ = ['WeightedFunction', 'Score', 'Scored', 'ScoredAgainst', 'weighted']
@@ -51,8 +51,8 @@ class Score (Base) :
         else :
             self.subscores = subscores
 
-    def __repr__ (self) :
-        return literal_representation(self, self.object, score=self.score)
+    def __repr__ (self, *args, **kw) :
+        return super().__repr__(self.object, score=pretty_float(self.score), *args, **kw)
 
     def __float__ (self) :
         return float(self.score)

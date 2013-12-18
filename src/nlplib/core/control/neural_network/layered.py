@@ -105,9 +105,11 @@ class MakeLayeredNeuralNetwork (NeuralNetworkDependent) :
         size = 2
 
         def affinity () :
-            yield 1.0 / 2
+            import random
+            def rand(a, b):
+                return (b-a)*random.random() + a
             while True :
-                yield 0.1
+                yield rand(-1, 1)
 
         s = affinity()
 

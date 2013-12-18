@@ -1,5 +1,6 @@
 ''' This module contains a bunch of functions which facilitate specialized iteration patterns. '''
 
+# todo : make windowed trail or not, so chop isn't needed
 
 import itertools
 

@@ -78,6 +78,15 @@ class Node (NeuralNetworkElement) :
     def output_strength (self) :
         return sum(node.charge * link.affinity for node, link in self.output_nodes.items())
 
+    def getError (self, correct) :
+
+        if not len(self.input_nodes) : # this is an input node
+            self.error = correct - self.charge
+        else :
+            self.error = sum(link.strength * link.input_node.getError(correct)
+                             for link in self.input_nodes.values())
+        return self.error
+
 class IONode (Node) :
     ''' A class for input and output neural network nodes. These are the nodes on the edge of a neural network, which
         hold data (in this case sequences). '''
@@ -91,4 +100,8 @@ class IONode (Node) :
 
     def __repr__ (self, *arg, **kw) :
         return super().__repr__(self.seq, *arg, **kw)
+
+    def getError (self, correct) :
+        for node in self.input_nodes.keys() :
+            node.getError(correct)
 

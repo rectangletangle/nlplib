@@ -221,30 +221,28 @@ class Backpropagate (NeuralNetworkDependent) :
         self.active_input_nodes = set(active_input_nodes)
         self.correct_output_nodes = set(correct_output_nodes)
 
-    def __call__ (self, n=0.1) :
+    def __call__ (self, n=0.2) :
         output_layer = list(FeedForward(self.session, self.neural_network, self.active_input_nodes))
-
         for node in output_layer :
             if node in self.correct_output_nodes :
                 correct_charge = 1.0
             else :
                 correct_charge = 0.0
 
-            error  = correct_charge - node.charge
-            delta  = math.dtanh(node.charge) * error
-            change = delta * node.charge
+            node.error = math.dtanh(node.charge) * (correct_charge - node.charge)
 
-            for link in node.input_nodes.values() :
-                link.affinity += n * change
-
-        for layer in islice(reversed(self.neural_network), 1, None) :
+        for layer in list(reversed(self.neural_network))[1:-1] :
             for node in layer :
-                error  = math.dtanh(node.output_strength()) - node.charge
-                delta  = math.dtanh(node.charge) * error
-                change = delta * node.charge
+                errors = sum(output_node.error * link.affinity for output_node, link in node.output_nodes.items())
+                node.error = math.dtanh(node.charge) * errors
+                print(node.error)
+        print()
+        print()
 
-                for link in node.input_nodes.values() :
-                    link.affinity += n * change
+        for layer in self.neural_network :
+            for node in layer :
+                for output_node, link in node.output_nodes.items() :
+                    link.affinity += n * output_node.error * node.charge
 
 def __test__ (ut) :
     from nlplib.core.control.neural_network.layered import MakeLayeredNeuralNetwork, static_io, static
@@ -259,7 +257,7 @@ def __test__ (ut) :
 
     with db as session :
         config = (static_io(session.access.words('a b c')),)
-        config += tuple(static(10) for _ in range(1))
+        config += tuple(static(3) for _ in range(1))
         config += (static_io(session.access.words('d e f')),)
         MakeLayeredNeuralNetwork(session, session.access.neural_network('foo'), config)()
 
@@ -271,12 +269,17 @@ def __test__ (ut) :
         b = list(session.access.nodes_for_seqs(nn, session.access.words('b')))
         e = list(session.access.nodes_for_seqs(nn, session.access.words('e')))
 
-        for _ in range(20) :
+        for _ in range(100) :
             Backpropagate(session, nn, a, d)()
             Backpropagate(session, nn, b, e)()
+        print()
+        print('a', sorted(FeedForward(session, nn, a), key=lambda n : n.error, reverse=True))
+        print('b', sorted(FeedForward(session, nn, b), key=lambda n : n.error, reverse=True))
 
-        print('a', sorted(FeedForward(session, nn, a), key=lambda n : n.charge, reverse=True))
-        print('b', sorted(FeedForward(session, nn, b), key=lambda n : n.charge, reverse=True))
+        for i, layer in enumerate(nn) :
+            if i == 1 :
+                for node in layer :
+                    print(tuple(node.output_nodes.values()))
 
 if __name__ == '__main__' :
     from nlplib.general.unit_test import UnitTest

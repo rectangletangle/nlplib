@@ -6,9 +6,6 @@ import random
 from nlplib.general import math
 from nlplib.general.iter import chunked, chop, windowed
 
-def rand (a, b) :
-    return (b - a) * random.random() + a
-
 class Link :
     def __init__ (self, input_node, output_node, affinity) :
         self.input_node = input_node
@@ -89,7 +86,7 @@ class Make :
         for input_layer, output_layer in chop(windowed(layers, 2, 1), 2) :
             for input_node in input_layer :
                 for output_node in output_layer :
-                    link = Link(input_node, output_node, rand(-1, 1))
+                    link = Link(input_node, output_node, random.randint(-1, 1))
                     input_node.output_nodes[output_node] = link
                     output_node.input_nodes[input_node] = link
 
@@ -153,7 +150,7 @@ class NN :
         self.feed_forward(inputs)
         return Backpropagate(self.neural_network, correct, rate)()
 
-    def train (self, patterns, loops=10000, rate=0.1) :
+    def train (self, patterns, loops=10000, rate=0.01) :
         for i in range(loops) :
 
             error = sum(self.backpropagate(inputs, correct, rate)
@@ -163,32 +160,27 @@ class NN :
                 print('error %-.5f' % error)
 
     def test (self, patterns) :
-        for inputs, correct in patterns :
+        for inputs in patterns :
             yield [int(round(node.charge, 0)) for node in
                    sorted(self.feed_forward(inputs), key=self.neural_network.output_nodes().index)]
 
 def __demo__ () :
-    pat = [[[0, 1],    [1, 1, 0]],
-           [[1, 0],    [1, 0, 1]],
-           [[1, 1],    [1, 1, 1]]]
+    def pat () :
+        yield [0, 0, 0, 0], [0, 0, 0, 0]
+        yield [1, 1, 0, 1], [1, 1, 1, 1]
+        yield [1, 1, 1, 1], [1, 1, 1, 1]
+        yield [1, 0, 0, 0], [0, 0, 0, 0]
 
-    nn = NN([2, 3, 3])
+    pat = [[p, c] for p, c in pat()]
+
+    nn = NN([4, 4, 4])
 
     for layer in nn.neural_network :
         print(layer)
 
-    def legit () :
-        nn.train(pat)
-        from pprint import pprint
-        pprint(list(nn.test(pat)))
-        assert list(nn.test(pat)) == [[1, 1, 0],
-                                      [1, 0, 1],
-                                      [1, 1, 1]]
-
-    if 1 :
-        legit()
-    else :
-        nn.train(pat)
+    nn.train(pat)
+    from pprint import pprint
+    pprint(list(nn.test([[1, 1, 0, 0]])), width=30)
 
 if __name__ == '__main__' :
     __demo__()

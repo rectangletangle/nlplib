@@ -1,5 +1,5 @@
 
-
+from functools import wraps
 from urllib.request import build_opener, URLError
 
 from nlplib.general.thread import simultaneously
@@ -108,7 +108,10 @@ class Scraped (Base) :
 
 def scraper (*args, cls=Scraped, **kw) :
     def wrapper (generator) :
-        return lambda *wrapped_args, **wrapped_kw : cls(generator(*wrapped_args, **wrapped_kw), *args, **kw)
+        @wraps(generator)
+        def with_generator (*wrapped_args, **wrapped_kw) :
+            return cls(generator(*wrapped_args, **wrapped_kw), *args, **kw)
+        return with_generator
     return wrapper
 
 def __test__ (ut) :

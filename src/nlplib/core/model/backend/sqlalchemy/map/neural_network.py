@@ -21,21 +21,23 @@ class NeuralNetworkMapper (ClassMapper) :
         io_node_table = self.tables['io_node']
         element_table = self.tables['neural_network_element']
 
-        input_relation = relationship(io_node_cls,
-                                      primaryjoin=and_(self.table.c.id==foreign(element_table.c.neural_network_id),
-                                                       io_node_table.c.is_input))
-
-        output_relation = relationship(io_node_cls,
-                                       primaryjoin=and_(self.table.c.id==foreign(element_table.c.neural_network_id),
-                                                        not_(io_node_table.c.is_input)))
+# todo : keep?
+##        input_relation = relationship(io_node_cls,
+##                                      primaryjoin=and_(self.table.c.id==foreign(element_table.c.neural_network_id),
+##                                                       io_node_table.c.is_input))
+##
+##        output_relation = relationship(io_node_cls,
+##                                       primaryjoin=and_(self.table.c.id==foreign(element_table.c.neural_network_id),
+##                                                        not_(io_node_table.c.is_input)))
 
         return {'properties' : {'elements'     : relationship(self.classes['neural_network_element'],
                                                               backref='neural_network'),
                                 'links'        : relationship(self.classes['link']),
                                 'nodes'        : relationship(self.classes['node']),
                                 'io_nodes'     : relationship(self.classes['io_node']),
-                                'input_nodes'  : input_relation,
-                                'output_nodes' : output_relation,
+# todo : keep ?
+##                                'input_nodes'  : input_relation,
+##                                'output_nodes' : output_relation,
                                 '_id'          : self.table.c.id}}
 
 class NeuralNetworkElementMapper (ClassMapper) :
@@ -100,10 +102,10 @@ class NodeMapper (ClassMapper) :
                                        secondary=link_table,
                                        primaryjoin=self.table.c.id==link_table.c.input_node_id)
 
-        return {'properties' : {'input_nodes'  : input_relation,
-                                'output_nodes' : output_relation,
-                                '_id'          : column_property(self.table.c.id,
-                                                                 self.tables['neural_network_element'].c.id)},
+        return {'properties' : {'inputs'  : input_relation,
+                                'outputs' : output_relation,
+                                '_id'     : column_property(self.table.c.id,
+                                                            self.tables['neural_network_element'].c.id)},
                 'inherits' : self.classes['neural_network_element'],
                 'polymorphic_identity' : self.name}
 

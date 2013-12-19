@@ -1,251 +1,129 @@
 
 
-from itertools import islice
+import itertools
 
-from nlplib.core.control.neural_network.base import NeuralNetworkDependent
-from nlplib.core.score import Score, Scored
-from nlplib.general.iter import windowed, chop
+from nlplib.core.model import SessionDependent
+from nlplib.core.score import Score
+from nlplib.core import Base, exc
 from nlplib.general import math
 
 __all__ = ['FeedForward', 'Backpropagate', 'Prediction', 'Train']
 
-class FeedForward (NeuralNetworkDependent) :
-    def __init__ (self, session, neural_network, active_input_nodes, *args, **kw) :
-        super().__init__(session, neural_network, *args, **kw)
-        self.active_input_nodes = active_input_nodes
+# todo : make math.* functions args
 
-    def __iter__ (self) :
-        for node in self.neural_network.nodes : # ???
-            node.charge = 0.0
-
-        active_nodes = list(self._activate(self.active_input_nodes))
-
-        # todo : use nn.__iter__
-        while True :
-            current_nodes = list(self._fire(active_nodes))
-
-            if not len(current_nodes) :
-                break
-            else :
-                active_nodes = current_nodes
-
-        return iter(active_nodes)
-
-    def _access_link (self, input_node, output_node) :
-        return self.session.access.link(self.neural_network, input_node, output_node)
-
-    def _activate (self, input_nodes) :
-        for input_node in input_nodes :
-            input_node.charge = 1.0
-            yield input_node
-
-    def _fire (self, input_nodes) :
-        output_nodes = {output_node
-                        for input_node in input_nodes
-                        for output_node in input_node.output_nodes}
-
-        for output_node in output_nodes :
-            total = sum(input_node.charge * self._access_link(input_node, output_node).affinity
-                        for input_node in input_nodes)
-
-            output_node.charge = math.tanh(total)
-
-            yield output_node
-
-class Backpropagate (NeuralNetworkDependent) :
-    def back_propagate(self, targets, n=0.1) :
-        raise DeprecationWarning
-        input_nodes  = self.nodes(0)
-        hidden_nodes = self.nodes(1)
-        output_nodes = self.nodes(2)
-
-        output_deltas = [0.0] * len(targets)
-        for i, output_node in enumerate(output_nodes) :
-            error = targets[i] - output_node.current
-            output_deltas[i] = math.dtanh(output_node.current) * error
-
-        hidden_deltas = [0.0] * len(hidden_nodes)
-        for i, hidden_node in enumerate(hidden_nodes) :
-            error = sum(output_deltas[j] * self._get_link(hidden_node, output_node).strength
-                        for j, output_node in enumerate(output_nodes))
-            hidden_deltas[i] = math.dtanh(hidden_node.current) * error
-
-        for i, hidden_node in enumerate(hidden_nodes) :
-            for j, output_node in enumerate(output_nodes) :
-                change = output_deltas[j] * hidden_node.current
-                self._get_link(hidden_node, output_node).strength += n * change
-
-        for i, input_node in enumerate(input_nodes) :
-            for j, hidden_node in enumerate(hidden_nodes) :
-                change = hidden_deltas[j] * input_node.current
-                self._get_link(input_node, hidden_node).strength += n * change
-
-    def __init__ (self, session, neural_network, active_input_nodes, correct_output_nodes, *args, **kw) :
-        super().__init__(session, neural_network, *args, **kw)
-        self.active_input_nodes = set(active_input_nodes)
-        self.correct_output_nodes = set(correct_output_nodes)
-
-    def __call__ (self) :
-        list(FeedForward(self.session, self.neural_network, self.active_input_nodes))
-        correct = dict(self._correct())
-        error = self._backpropagate(correct)
-        return error
-
-    def _calculate_output_deltas (self, correct) :
-        for output_node in self.neural_network.output_nodes :
-            error = correct[output_node] - output_node.current
-            yield (output_node, math.dtanh(output_node.current) * error)
-
-    def _calculate_deltas (self, input_nodes, output_nodes, deltas) :
-
-        access_link = self.session.access.link
-
-        for input_node in input_nodes :
-
-            error = sum(deltas[output_node] * access_link(self.neural_network, input_node, output_node).strength
-                        for output_node in output_nodes)
-
-            yield (input_node, math.dtanh(input_node.current) * error)
-
-    def _backpropagate (self, correct, n=0.01) :
-
-        output_deltas = dict(self._calculate_output_deltas(correct))
-
-        for output_layer, input_layer in chop(windowed(reversed(self.neural_network), 2), 2) :
-
-            old_deltas = output_deltas
-            output_deltas = dict(self._calculate_deltas(input_layer, output_layer, old_deltas))
-
-            for input_node in input_layer :
-                for output_node in output_layer :
-                    change = old_deltas[output_node] * input_node.current
-                    self.session.access.link(self.neural_network, input_node, output_node).strength += n * change
-
-    def _correct (self) :
-        for output_node in self.neural_network.output_nodes :
-            if output_node in self.correct_output_nodes :
-                yield (output_node, 1.0)
-            else :
-                yield (output_node, 0.0)
-
-class Prediction (NeuralNetworkDependent) :
-    def __init__ (self, session, neural_network, input_seqs, *args, **kw) :
-        super().__init__(session, neural_network, *args, **kw)
-
-        self.input_seqs = input_seqs
-
-    def __iter__ (self) :
-        active_input_nodes = list(self.session.access.nodes_for_seqs(self.neural_network, self.input_seqs))
-        for active_ouput_node in FeedForward(self.session, self.neural_network, active_input_nodes) :
-             yield Score(object=active_ouput_node.seq, score=active_ouput_node.current)
-
-class Train (NeuralNetworkDependent) :
+class NeuralNetworkConfigurationError (exc.NLPLibError) :
     pass
 
-def __test__ (ut) :
-    from nlplib.core.control.neural_network.layered import MakeLayeredNeuralNetwork, static_io, static
-    from nlplib.core.model import Database, NeuralNetwork, Word
-
-    db = Database()
-
-    with db as session :
-        session.add(NeuralNetwork('foo'))
-
-        for char in 'abcdef' :
-            session.add(Word(char))
-
-    with db as session :
-        config = (static_io(session.access.words('a b')),
-                  static(3),
-                  static_io(session.access.words('d e f')))
-
-        MakeLayeredNeuralNetwork(session, session.access.neural_network('foo'), config)()
-
-
-    def as_floats (prediction) :
-        return sorted(float(score) for score in prediction)
-
-    with db as session :
-        nn = session.access.neural_network('foo')
-        #ut.assert_equal(as_floats(Prediction(session, nn, session.access.words('a b'))),
-        #                [0.07601250837541615, 0.07601250837541615, 0.07601250837541615])
-
-
-    with db as session :
-        config = (static_io(session.access.words('a b c')),
-                  static(3),
-                  static(3),
-                  static_io(session.access.words('d e f')))
-
-        bar = session.add(NeuralNetwork('bar'))
-
-        MakeLayeredNeuralNetwork(session, bar, config)()
-
-
-    with db as session :
-        bar = session.access.neural_network('bar')
-
-        a, b, c, d, e, f = session.access.nodes_for_seqs(bar, session.access.words('a b c d e f'))
-
-        for _ in range(20) : # 30
-            for _ in range(2) :
-                Backpropagate(session, bar, [a], [d])()
-            Backpropagate(session, bar, [b], [e])()
-            Backpropagate(session, bar, [c], [f])()
-
-        print('a', sorted(Prediction(session, bar, session.access.words('a'))))
-        print('b', sorted(Prediction(session, bar, session.access.words('b'))))
-        print('c', sorted(Prediction(session, bar, session.access.words('c'))))
-
-class FeedForward (NeuralNetworkDependent) :
-    def __init__ (self, session, neural_network, active_input_nodes, *args, **kw) :
-        super().__init__(session, neural_network, *args, **kw)
+class FeedForward (Base) :
+    def __init__ (self, neural_network, active_input_nodes, *args, **kw) :
+        self.neural_network = neural_network
         self.active_input_nodes = active_input_nodes
 
-    def __iter__ (self) :
-        for node in self.neural_network.nodes :
+    def __call__ (self) :
+        for node in self.neural_network.inputs() :
             node.charge = 0.0
 
         for node in self.active_input_nodes :
             node.charge = 1.0
 
-        for layer in islice(self.neural_network, 1, None) :
+        for layer in itertools.islice(self.neural_network, 1, None) :
             for node in layer :
-                node.charge = math.tanh(node.input_strength())
+                node.charge = math.tanh(self._input_strength(node))
 
-        yield from layer
+        try :
+            return layer
+        except UnboundLocalError :
+            raise NeuralNetworkConfigurationError('This requires a neural network that has at least two layers.')
 
-class Backpropagate (NeuralNetworkDependent) :
-    def __init__ (self, session, neural_network, active_input_nodes, correct_output_nodes, *args, **kw) :
-        super().__init__(session, neural_network, *args, **kw)
+    def _input_strength (self, node) :
+        return sum(link.input_node.charge * link.affinity for link in node.inputs.values())
+
+class Backpropagate (Base) :
+    ''' This is an implementation of the backpropagation algorithm, a supervised neural network training algorithm. '''
+
+    def __init__ (self, neural_network, active_input_nodes, correct_output_nodes, rate=0.2, *args, **kw) :
+        self.neural_network = neural_network
         self.active_input_nodes = set(active_input_nodes)
         self.correct_output_nodes = set(correct_output_nodes)
+        self.rate = rate
 
-    def __call__ (self, n=0.2) :
-        output_layer = list(FeedForward(self.session, self.neural_network, self.active_input_nodes))
-        for node in output_layer :
-            if node in self.correct_output_nodes :
-                correct_charge = 1.0
-            else :
-                correct_charge = 0.0
+    def __call__ (self) :
+        FeedForward(self.neural_network, self.active_input_nodes)()
+        return self._propagate_errors()
 
-            node.error = math.dtanh(node.charge) * (correct_charge - node.charge)
+    def _output_errors (self) :
+        for output_node in self.neural_network.outputs() :
+            correct_value = 1.0 if output_node in self.correct_output_nodes else 0.0
 
-        for layer in list(reversed(self.neural_network))[1:-1] :
+            difference = correct_value - output_node.charge
+
+            output_node.error = math.dtanh(output_node.charge) * difference
+
+            yield difference
+
+    def _hidden_errors (self) :
+        for layer in self.neural_network.hidden(reverse=True) :
             for node in layer :
-                errors = sum(output_node.error * link.affinity for output_node, link in node.output_nodes.items())
-                node.error = math.dtanh(node.charge) * errors
-                print(node.error)
-        print()
-        print()
+                node.error = math.dtanh(node.charge) * sum(output_node.error * link.affinity
+                                                           for output_node, link in node.outputs.items())
 
-        for layer in self.neural_network :
+    def _update_link_affinities (self) :
+        for layer in itertools.islice(reversed(self.neural_network), 1, None) :
             for node in layer :
-                for output_node, link in node.output_nodes.items() :
-                    link.affinity += n * output_node.error * node.charge
+                for link in node.outputs.values() :
+                    link.affinity += self.rate * link.output_node.error * node.charge
 
-def __test__ (ut) :
-    from nlplib.core.control.neural_network.layered import MakeLayeredNeuralNetwork, static_io, static
+    def _propagate_errors (self) :
+        output_differences = list(self._output_errors())
+
+        self._hidden_errors()
+
+        self._update_link_affinities()
+
+        total_error = sum(0.5 * difference ** 2 for difference in output_differences)
+
+        return total_error
+
+class Prediction (SessionDependent) :
+    def __init__ (self, session, neural_network, seqs, *args, **kw) :
+        super().__init__(session)
+        self.neural_network = neural_network
+        self.seqs = seqs
+
+    def __iter__ (self) :
+        active_input_nodes = list(self.session.access.nodes_for_seqs(self.neural_network, self.seqs))
+        for ouput_node in FeedForward(self.neural_network, active_input_nodes)() :
+
+             yield Score(object=ouput_node.seq, score=ouput_node.charge)
+
+class Train (SessionDependent) :
+    # todo : make rate take callable
+
+    def __init__ (self, session, neural_network, patterns, iterations=100, rate=0.2, *args, **kw) :
+        super().__init__(session)
+        self.neural_network = neural_network
+        self.patterns = patterns
+        self.iterations = iterations
+        self.rate = rate
+
+    def __iter__ (self) :
+        nodes = list(self._input_and_output_nodes())
+
+        for _ in range(self.iterations) :
+            for active_input_nodes, correct_output_nodes in nodes :
+                yield Backpropagate(self.neural_network, active_input_nodes, correct_output_nodes, rate=self.rate)()
+
+    def _input_and_output_nodes (self) :
+        for input_seqs, output_seqs in self.patterns :
+
+            seqs = tuple(self.session.access.nodes_for_seqs(self.neural_network, input_seqs + output_seqs))
+
+            middle = len(input_seqs)
+            yield (seqs[:middle], seqs[middle:])
+
+def __demo__ () :
+    from nlplib.core.control.neural_network.layered import MakeMultilayerPerceptron, static_io, static
+    from nlplib.core.score import Scored
     from nlplib.core.model import Database, NeuralNetwork, Word
 
     db = Database()
@@ -256,32 +134,37 @@ def __test__ (ut) :
             session.add(Word(char))
 
     with db as session :
+
         config = (static_io(session.access.words('a b c')),)
-        config += tuple(static(3) for _ in range(1))
+        config += tuple(static(10) for _ in range(1))
         config += (static_io(session.access.words('d e f')),)
-        MakeLayeredNeuralNetwork(session, session.access.neural_network('foo'), config)()
+
+        MakeMultilayerPerceptron(session.access.neural_network('foo'), config)()
 
     with db as session :
         nn = session.access.neural_network('foo')
-        a = list(session.access.nodes_for_seqs(nn, session.access.words('a')))
-        d = list(session.access.nodes_for_seqs(nn, session.access.words('d')))
 
-        b = list(session.access.nodes_for_seqs(nn, session.access.words('b')))
-        e = list(session.access.nodes_for_seqs(nn, session.access.words('e')))
+        a, b, c, d, e, f = session.access.words('a b c d e f')
 
-        for _ in range(100) :
-            Backpropagate(session, nn, a, d)()
-            Backpropagate(session, nn, b, e)()
+        patterns = [((a, b), (f,)),
+                    ((a, c), (f,)),
+                    ((b,),   (d,)),
+                    ((c,),   (e,))]
+
+        for i, error in enumerate(Train(session, nn, patterns, 50, 0.5)) :
+            if i % 1 == 0 :
+                print(i, ':', error)
+
         print()
-        print('a', sorted(FeedForward(session, nn, a), key=lambda n : n.error, reverse=True))
-        print('b', sorted(FeedForward(session, nn, b), key=lambda n : n.error, reverse=True))
 
-        for i, layer in enumerate(nn) :
-            if i == 1 :
-                for node in layer :
-                    print(tuple(node.output_nodes.values()))
+        print('a', sorted(Prediction(session, nn, (a,)), reverse=True))
+        print('b', sorted(Prediction(session, nn, (b,)), reverse=True))
+        print('c', sorted(Prediction(session, nn, (c,)), reverse=True))
+        print()
+        print('a b', sorted(Prediction(session, nn, (a, b)), reverse=True))
+        print('a c', sorted(Prediction(session, nn, (a, c)), reverse=True))
+        print('b c', sorted(Prediction(session, nn, (b, c)), reverse=True))
 
 if __name__ == '__main__' :
-    from nlplib.general.unit_test import UnitTest
-    __test__(UnitTest())
+    __demo__()
 

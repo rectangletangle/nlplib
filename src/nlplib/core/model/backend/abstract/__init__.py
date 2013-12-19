@@ -1,6 +1,6 @@
 ''' This package contains classes that act as abstract base classes for the various storage back-ends. '''
 
-
+from functools import wraps
 from contextlib import contextmanager
 
 from nlplib.core import Base
@@ -55,10 +55,11 @@ class Database (Base) :
             context. '''
 
         if callable(function) :
-            def wrapper (*args, **kw) :
+            @wraps(function)
+            def with_session (*args, **kw) :
                 with self._make_session() as session :
                     return function(session, *args, **kw)
-            return wrapper
+            return with_session
         else :
             return self._make_session()
 

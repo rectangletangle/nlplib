@@ -3,7 +3,7 @@
 import itertools
 
 from nlplib.core.model.base import Model
-from nlplib.general.iter import truncate
+from nlplib.general.iter import truncate, paired
 from nlplib.general import pretty_float
 
 # todo : implement __all__ list
@@ -21,7 +21,8 @@ class NeuralNetwork (Model) :
         return super().__repr__(self.name, *args, **kw)
 
     def _iter_layers (self, from_nodes, direction) :
-        yield set(from_nodes)
+        from_nodes = set(from_nodes)
+        yield set(from_nodes) # Returning a copy is desirable here.
 
         while True :
             to_nodes = {to_node
@@ -35,17 +36,17 @@ class NeuralNetwork (Model) :
                 from_nodes = to_nodes
 
     def __iter__ (self) :
-        return self._iter_layers(self.input(), lambda input_node : input_node.output_nodes)
+        return self._iter_layers(self.inputs(), lambda input_node : input_node.outputs)
 
     def __reversed__ (self) :
-        return self._iter_layers(self.output(), lambda output_node : output_node.input_nodes)
+        return self._iter_layers(self.outputs(), lambda output_node : output_node.inputs)
 
-    def input (self) :
+    def inputs (self) :
         for io_node in self.io_nodes :
             if io_node.is_input :
                 yield io_node
 
-    def output (self) :
+    def outputs (self) :
         for io_node in self.io_nodes :
             if not io_node.is_input :
                 yield io_node
@@ -53,6 +54,10 @@ class NeuralNetwork (Model) :
     def hidden (self, reverse=False) :
         layers = self if not reverse else reversed(self)
         return truncate(itertools.islice(layers, 1, None), 1)
+
+    def paired (self, reverse=False) :
+        layers = self if not reverse else reversed(self)
+        return paired(layers)
 
 class NeuralNetworkElement (Model) :
     def __init__ (self, neural_network) :
@@ -75,14 +80,14 @@ class Link (NeuralNetworkElement) :
 class Node (NeuralNetworkElement) :
     ''' A class for neural network nodes. '''
 
-    def __init__ (self, neural_network, charge=1.0, error=None) :
+    def __init__ (self, neural_network, charge=0.0, error=None) :
         super().__init__(neural_network)
 
         self.charge = charge
         self.error  = error
 
-        self.input_nodes  = {}
-        self.output_nodes = {}
+        self.inputs  = {}
+        self.outputs = {}
 
     def __repr__ (self, *arg, **kw) :
         return super().__repr__(pretty_float(self.charge), *arg, **kw)

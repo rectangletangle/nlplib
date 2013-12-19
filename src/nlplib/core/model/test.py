@@ -68,11 +68,11 @@ def _test_neural_network_links (ut) :
 
         link = session.add(Link(nn, io_node, node))
 
-        ut.assert_true(io_node.output_nodes[node] is node.input_nodes[io_node] is link)
-        ut.assert_equal(io_node.input_nodes, {})
-        ut.assert_equal(node.output_nodes, {})
-        ut.assert_equal(io_node.output_nodes, {node : link})
-        ut.assert_equal(node.input_nodes, {io_node : link})
+        ut.assert_true(io_node.outputs[node] is node.inputs[io_node] is link)
+        ut.assert_equal(io_node.inputs, {})
+        ut.assert_equal(node.outputs, {})
+        ut.assert_equal(io_node.outputs, {node : link})
+        ut.assert_equal(node.inputs, {io_node : link})
 
 def __test__ (ut) :
     _test_neural_network_model(ut)

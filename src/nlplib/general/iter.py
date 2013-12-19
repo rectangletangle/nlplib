@@ -5,7 +5,7 @@
 import itertools
 import collections
 
-__all__ = ['windowed', 'chunked', 'chop', 'generates']
+__all__ = ['windowed', 'chunked', 'chop', 'generates', 'paired']
 
 def windowed (iterable, size, step=1) :
     ''' This function yields a tuple of a given size, then steps forward. If the step is smaller than the size, the
@@ -56,10 +56,9 @@ def generates (generator) :
         return itertools.chain((first,), iterable)
 
 def truncate (iterable, amount) :
-    ''' This allows iteration over all but the last couple of items in an iterable. '''
+    ''' This allows for iteration over all but the last couple of items in an iterable. '''
 
-    queue = collections.deque()
-
+    queue   = collections.deque()
     append  = queue.append
     popleft = queue.popleft
 
@@ -68,6 +67,10 @@ def truncate (iterable, amount) :
 
         if len(queue) > amount :
             yield popleft()
+
+def paired (iterable) :
+    size = 2
+    return chop(windowed(iterable, size, step=1), size)
 
 def __test__ (ut) :
     ut.assert_equal(list(chunked(range(7), 3)), [(0, 1, 2), (3, 4, 5), (6,)] )
@@ -105,6 +108,10 @@ def __test__ (ut) :
     ut.assert_equal(list(truncate(range(10), -34)), list(range(10)) )
     ut.assert_equal(list(truncate(range(10), 34)),  []              )
     ut.assert_equal(list(truncate(range(10), 10)),  []              )
+
+    ut.assert_equal(list(paired(range(5))), [(0, 1), (1, 2), (2, 3), (3, 4)])
+    ut.assert_equal(list(paired(range(4))), [(0, 1), (1, 2), (2, 3)])
+    ut.assert_equal(list(paired([])), [])
 
 if __name__ == '__main__' :
     from nlplib.general.unit_test import UnitTest

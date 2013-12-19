@@ -1,5 +1,5 @@
 
-
+from functools import wraps
 from time import time
 
 from nlplib.general.unit_test import _logging_function
@@ -11,14 +11,15 @@ def timing (function, log=print) :
 
     log = _logging_function(log)
 
-    def wrap (*args, **kw) :
+    @wraps(function)
+    def timed (*args, **kw) :
         time_0 = time()
         ret = function(*args, **kw)
         time_1 = time()
         log('the function <%s> took %0.3f seconds' % (function.__name__, time_1 - time_0))
         return ret
 
-    return wrap
+    return timed
 
 def __demo__ () :
     from time import sleep

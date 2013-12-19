@@ -3,6 +3,7 @@
 # todo : make windowed trail or not, so chop isn't needed
 
 import itertools
+import collections
 
 __all__ = ['windowed', 'chunked', 'chop', 'generates']
 
@@ -32,7 +33,7 @@ def chunked (iterable, size) :
     return windowed(iterable, size=size, step=size)
 
 def chop (iterable, size) :
-    ''' This chops off any chunks in an iterable below a certain size. '''
+    ''' This removes any chunks at the end of an iterable, below a certain size. '''
 
     for chunk in iterable :
         try :
@@ -53,6 +54,20 @@ def generates (generator) :
         return None
     else :
         return itertools.chain((first,), iterable)
+
+def truncate (iterable, amount) :
+    ''' This allows iteration over all but the last couple of items in an iterable. '''
+
+    queue = collections.deque()
+
+    append  = queue.append
+    popleft = queue.popleft
+
+    for item in iterable :
+        append(item)
+
+        if len(queue) > amount :
+            yield popleft()
 
 def __test__ (ut) :
     ut.assert_equal(list(chunked(range(7), 3)), [(0, 1, 2), (3, 4, 5), (6,)] )
@@ -82,6 +97,14 @@ def __test__ (ut) :
     ut.assert_doesnt_raise(lambda : next(generates(generates_something())), StopIteration)
     ut.assert_doesnt_raise(lambda : next(generates_something()), StopIteration)
     ut.assert_raises(lambda : next(generates_nothing()), StopIteration)
+
+    ut.assert_equal(list(truncate(range(4), 1)),    [0, 1, 2]       )
+    ut.assert_equal(list(truncate(range(10), 4)),   list(range(6))  )
+    ut.assert_equal(list(truncate(range(10), 0)),   list(range(10)) )
+    ut.assert_equal(list(truncate(range(10), -1)),  list(range(10)) )
+    ut.assert_equal(list(truncate(range(10), -34)), list(range(10)) )
+    ut.assert_equal(list(truncate(range(10), 34)),  []              )
+    ut.assert_equal(list(truncate(range(10), 10)),  []              )
 
 if __name__ == '__main__' :
     from nlplib.general.unit_test import UnitTest

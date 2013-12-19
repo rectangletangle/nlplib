@@ -1,6 +1,9 @@
 
 
+import itertools
+
 from nlplib.core.model.base import Model
+from nlplib.general.iter import truncate
 from nlplib.general import pretty_float
 
 # todo : implement __all__ list
@@ -13,9 +16,6 @@ class NeuralNetwork (Model) :
         self.links    = list(links)
         self.nodes    = list(nodes)
         self.io_nodes = list(io_nodes)
-
-        self.input_nodes  = [io_node for io_node in self.io_nodes if io_node.is_input]
-        self.output_nodes = [io_node for io_node in self.io_nodes if not io_node.is_input]
 
     def __repr__ (self, *args, **kw) :
         return super().__repr__(self.name, *args, **kw)
@@ -35,10 +35,24 @@ class NeuralNetwork (Model) :
                 from_nodes = to_nodes
 
     def __iter__ (self) :
-        return self._iter_layers(self.input_nodes, lambda input_node : input_node.output_nodes)
+        return self._iter_layers(self.input(), lambda input_node : input_node.output_nodes)
 
     def __reversed__ (self) :
-        return self._iter_layers(self.output_nodes, lambda output_node : output_node.input_nodes)
+        return self._iter_layers(self.output(), lambda output_node : output_node.input_nodes)
+
+    def input (self) :
+        for io_node in self.io_nodes :
+            if io_node.is_input :
+                yield io_node
+
+    def output (self) :
+        for io_node in self.io_nodes :
+            if not io_node.is_input :
+                yield io_node
+
+    def hidden (self, reverse=False) :
+        layers = self if not reverse else reversed(self)
+        return truncate(itertools.islice(layers, 1, None), 1)
 
 class NeuralNetworkElement (Model) :
     def __init__ (self, neural_network) :
@@ -61,31 +75,17 @@ class Link (NeuralNetworkElement) :
 class Node (NeuralNetworkElement) :
     ''' A class for neural network nodes. '''
 
-    def __init__ (self, neural_network, charge=1.0) :
+    def __init__ (self, neural_network, charge=1.0, error=None) :
         super().__init__(neural_network)
 
         self.charge = charge
+        self.error  = error
 
         self.input_nodes  = {}
         self.output_nodes = {}
 
     def __repr__ (self, *arg, **kw) :
         return super().__repr__(pretty_float(self.charge), *arg, **kw)
-
-    def input_strength (self) :
-        return sum(node.charge * link.affinity for node, link in self.input_nodes.items())
-
-    def output_strength (self) :
-        return sum(node.charge * link.affinity for node, link in self.output_nodes.items())
-
-    def getError (self, correct) :
-
-        if not len(self.input_nodes) : # this is an input node
-            self.error = correct - self.charge
-        else :
-            self.error = sum(link.strength * link.input_node.getError(correct)
-                             for link in self.input_nodes.values())
-        return self.error
 
 class IONode (Node) :
     ''' A class for input and output neural network nodes. These are the nodes on the edge of a neural network, which
@@ -100,8 +100,4 @@ class IONode (Node) :
 
     def __repr__ (self, *arg, **kw) :
         return super().__repr__(self.seq, *arg, **kw)
-
-    def getError (self, correct) :
-        for node in self.input_nodes.keys() :
-            node.getError(correct)
 

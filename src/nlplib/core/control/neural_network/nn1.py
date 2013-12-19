@@ -4,7 +4,7 @@ import itertools
 import random
 
 from nlplib.general import math
-from nlplib.general.iter import chunked, chop, windowed
+from nlplib.general.iter import chop, windowed, truncate
 
 class Link :
     def __init__ (self, input_node, output_node, affinity) :
@@ -40,15 +40,9 @@ class NeuralNetwork :
     def __init__ (self) :
         self.io_nodes = []
 
-    def input_nodes (self) :
-        return [io_node for io_node in self.io_nodes if io_node.is_input]
-
-    def output_nodes (self) :
-        return [io_node for io_node in self.io_nodes if not io_node.is_input]
-
     def _iter_layers (self, from_nodes, direction) :
-
-        yield set(from_nodes)
+        from_nodes = set(from_nodes)
+        yield set(from_nodes) # Returning a copy is desirable here.
 
         while True :
             to_nodes = {to_node
@@ -62,10 +56,24 @@ class NeuralNetwork :
                 from_nodes = to_nodes
 
     def __iter__ (self) :
-        return self._iter_layers(self.input_nodes(), lambda input_node : input_node.output_nodes)
+        return self._iter_layers(self.input(), lambda input_node : input_node.output_nodes)
 
     def __reversed__ (self) :
-        return self._iter_layers(self.output_nodes(), lambda output_node : output_node.input_nodes)
+        return self._iter_layers(self.output(), lambda output_node : output_node.input_nodes)
+
+    def input (self) :
+        for io_node in self.io_nodes :
+            if io_node.is_input :
+                yield io_node
+
+    def output (self) :
+        for io_node in self.io_nodes :
+            if not io_node.is_input :
+                yield io_node
+
+    def hidden (self, reverse=False) :
+        layers = self if not reverse else reversed(self)
+        return truncate(itertools.islice(layers, 1, None), 1)
 
 class Make :
     def __init__ (self, neural_network, config) :
@@ -99,7 +107,7 @@ class FeedForward :
         return sum(link.input_node.charge * link.affinity for link in node.input_nodes.values())
 
     def __iter__ (self) :
-        for node in self.neural_network.input_nodes() :
+        for node in self.neural_network.input() :
             node.charge = 0.0
 
         for node in self.active_input_nodes :
@@ -118,21 +126,21 @@ class Backpropagate :
         self.rate = rate
 
     def __call__ (self) :
-        for value, output_node in zip(self.correct, self.neural_network.output_nodes()) :
+        for value, output_node in zip(self.correct, self.neural_network.output()) :
             output_node.error = math.dtanh(output_node.charge) * (value - output_node.charge)
 
-        for layer in list(reversed(self.neural_network))[1:-1] :
+        for layer in self.neural_network.hidden(reverse=True) :
             for node in layer :
                 node.error = math.dtanh(node.charge) * sum(output_node.error * link.affinity
                                                            for output_node, link in node.output_nodes.items())
 
-        for layer in list(reversed(self.neural_network))[1:] :
+        for layer in itertools.islice(reversed(self.neural_network), 1, None) :
             for node in layer :
                 for link in node.output_nodes.values() :
                     link.affinity += self.rate * link.output_node.error * node.charge
 
         return sum(0.5 * (value - node.charge) ** 2
-                   for value, node in zip(self.correct, self.neural_network.output_nodes()))
+                   for value, node in zip(self.correct, self.neural_network.output()))
 
 class NN :
     def __init__ (self, config) :
@@ -141,7 +149,7 @@ class NN :
 
     def feed_forward (self, inputs) :
         active_input_nodes = [node
-                              for input_, node in zip(inputs, self.neural_network.input_nodes())
+                              for input_, node in zip(inputs, self.neural_network.input())
                               if input_]
 
         return list(FeedForward(self.neural_network, active_input_nodes))
@@ -156,13 +164,13 @@ class NN :
             error = sum(self.backpropagate(inputs, correct, rate)
                         for inputs, correct in patterns)
 
-            if i % 100 == 0 :
+            if i % 1000 == 0 :
                 print('error %-.5f' % error)
 
     def test (self, patterns) :
         for inputs in patterns :
             yield [int(round(node.charge, 0)) for node in
-                   sorted(self.feed_forward(inputs), key=self.neural_network.output_nodes().index)]
+                   sorted(self.feed_forward(inputs), key=list(self.neural_network.output()).index)]
 
 def __demo__ () :
     def pat () :

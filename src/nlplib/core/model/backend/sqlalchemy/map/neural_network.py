@@ -83,7 +83,8 @@ class NodeMapper (ClassMapper) :
 
     def columns (self) :
         return (Column('id', Integer, ForeignKey('neural_network_element.id'), primary_key=True),
-                Column('charge', Float))
+                Column('charge', Float),
+                Column('error', Float))
 
     def mapper_kw (self) :
         link_class = self.classes['link']

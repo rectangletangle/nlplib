@@ -4,23 +4,22 @@ import itertools
 
 from nlplib.core.model.base import Model
 from nlplib.general.iter import truncate, paired
-from nlplib.general import pretty_float
+from nlplib.general import pretty_float, composite
 
 # todo : implement __all__ list
 
 class NeuralNetwork (Model) :
-    def __init__ (self, name, elements=(), links=(), nodes=(), io_nodes=()) :
+    def __init__ (self, name) :
         self.name = name
 
-        self.elements = list(elements)
-        self.links    = list(links)
-        self.nodes    = list(nodes)
-        self.io_nodes = list(io_nodes)
+        self.elements = []
+        self.inputs   = []
+        self.outputs  = []
 
     def __repr__ (self, *args, **kw) :
         return super().__repr__(self.name, *args, **kw)
 
-    def _iter_layers (self, from_nodes, direction) :
+    def _iter_nodes (self, from_nodes, direction) :
         from_nodes = set(from_nodes)
         yield set(from_nodes) # Returning a copy is desirable here.
 
@@ -36,20 +35,10 @@ class NeuralNetwork (Model) :
                 from_nodes = to_nodes
 
     def __iter__ (self) :
-        return self._iter_layers(self.inputs(), lambda input_node : input_node.outputs)
+        return self._iter_nodes(self.inputs, lambda input_node : input_node.outputs)
 
     def __reversed__ (self) :
-        return self._iter_layers(self.outputs(), lambda output_node : output_node.inputs)
-
-    def inputs (self) :
-        for io_node in self.io_nodes :
-            if io_node.is_input :
-                yield io_node
-
-    def outputs (self) :
-        for io_node in self.io_nodes :
-            if not io_node.is_input :
-                yield io_node
+        return self._iter_nodes(self.outputs, lambda output_node : output_node.inputs)
 
     def hidden (self, reverse=False) :
         layers = self if not reverse else reversed(self)
@@ -58,6 +47,19 @@ class NeuralNetwork (Model) :
     def paired (self, reverse=False) :
         layers = self if not reverse else reversed(self)
         return paired(layers)
+
+class Perceptron (NeuralNetwork) :
+    # todo : rename layered
+    # todo : req?
+    @composite(lambda self : (tuple(self.elements), tuple(self.inputs)))
+    def layers (self) :
+        return list(super().__iter__())
+
+    def __iter__ (self) :
+        return iter(self.layers)
+
+    def __reversed__ (self) :
+        return reversed(self.layers)
 
 class NeuralNetworkElement (Model) :
     def __init__ (self, neural_network) :

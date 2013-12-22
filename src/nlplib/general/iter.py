@@ -5,7 +5,7 @@
 import itertools
 import collections
 
-__all__ = ['windowed', 'chunked', 'chop', 'generates', 'paired']
+__all__ = ['windowed', 'chunked', 'chop', 'generates', 'paired', 'united']
 
 def windowed (iterable, size, step=1) :
     ''' This function yields a tuple of a given size, then steps forward. If the step is smaller than the size, the
@@ -35,13 +35,14 @@ def chunked (iterable, size) :
 def chop (iterable, size) :
     ''' This removes any chunks at the end of an iterable, below a certain size. '''
 
-    for chunk in iterable :
-        try :
-            chunk[size-1] # Easier to Ask for Forgiveness Than Permission, style length testing
-        except IndexError :
-            break
-        else :
-            yield chunk
+    if size > 0 :
+        for chunk in iterable :
+            try :
+                chunk[size-1] # Easier to Ask for Forgiveness Than Permission, style length testing
+            except IndexError :
+                break
+            else :
+                yield chunk
 
 def generates (generator) :
     ''' If a generator doesn't generate anything this returns <None>, otherwise it returns an equivalent generator. '''
@@ -70,7 +71,43 @@ def truncate (iterable, amount) :
 
 def paired (iterable) :
     size = 2
-    return chop(windowed(iterable, size, step=1), size)
+    windows = windowed(iterable, size, step=1)
+
+    # todo : change behavior for iterable with len == 1 to [], to go allong with the chop
+    try :
+        item = next(windows)
+    except StopIteration :
+        pass
+    else :
+        try :
+            first, second = item
+        except ValueError :
+            yield item
+        else :
+            yield (first, second)
+
+        yield from chop(windows, size)
+
+def united (paired) :
+    ''' This can be used to efficiently undo the effects of the <paired> function on an iterable. '''
+
+    paired = iter(paired)
+
+    try :
+        item = next(paired)
+    except StopIteration :
+        pass
+    else :
+        try :
+            first, second = item
+        except ValueError :
+            yield item[0]
+        else :
+            yield first
+            yield second
+
+        for first, second in paired :
+            yield second
 
 def __test__ (ut) :
     ut.assert_equal(list(chunked(range(7), 3)), [(0, 1, 2), (3, 4, 5), (6,)] )
@@ -85,6 +122,9 @@ def __test__ (ut) :
     size = 3
     ut.assert_equal(list(chop(windowed(range(4), size, 1), size)), [(0, 1, 2), (1, 2, 3)] )
     ut.assert_equal(list(chop(chunked(range(7), size), size)),     [(0, 1, 2), (3, 4, 5)] )
+    ut.assert_equal(list(chop(paired([0]), 1)), [(0,)])
+    ut.assert_equal(list(chop(paired([0]), 0)), [])
+    ut.assert_equal(list(chop(paired([0]), -1)), [])
 
     def generates_something () :
         i = 0
@@ -109,9 +149,16 @@ def __test__ (ut) :
     ut.assert_equal(list(truncate(range(10), 34)),  []              )
     ut.assert_equal(list(truncate(range(10), 10)),  []              )
 
-    ut.assert_equal(list(paired(range(5))), [(0, 1), (1, 2), (2, 3), (3, 4)])
-    ut.assert_equal(list(paired(range(4))), [(0, 1), (1, 2), (2, 3)])
     ut.assert_equal(list(paired([])), [])
+    ut.assert_equal(list(paired([0])), [(0,)])
+    ut.assert_equal(list(paired(range(4))), [(0, 1), (1, 2), (2, 3)])
+    ut.assert_equal(list(paired(range(5))), [(0, 1), (1, 2), (2, 3), (3, 4)])
+
+    ut.assert_equal(list(united(paired([]))), [])
+    ut.assert_equal(list(united(paired([0]))), [0])
+    ut.assert_equal(list(united(paired([0, 1]))), [0, 1])
+    ut.assert_equal(list(united(paired(range(3)))), list(range(3)))
+    ut.assert_equal(list(united(paired(range(12)))), list(range(12)))
 
 if __name__ == '__main__' :
     from nlplib.general.unit_test import UnitTest

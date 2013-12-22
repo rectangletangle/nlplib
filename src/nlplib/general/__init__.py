@@ -3,25 +3,52 @@
 from functools import wraps
 from itertools import chain
 
-__all__ = ['lazy_property', 'pretty_truncate', 'pretty_float', 'nonliteral_representation', 'literal_representation']
+__all__ = ['composite', 'pretty_truncate', 'pretty_float', 'nonliteral_representation', 'literal_representation']
 
-def lazy_property (function) :
-    ''' A lazily evaluated read only property. '''
+class _Composite :
+    def __init__ (self, key=lambda object : (), identity=lambda object : (id(object),)) :
+        self.key = key
+        self.identity = identity
+        self.history = {}
+        self.cache = {}
 
-    cache = {}
+    def __call__ (self, function) :
+        @wraps(function)
+        def get (object) :
+            identity = self.identity(object)
+            key = self.key(object)
 
-    @wraps(function)
-    def get (self) :
-        key = (self, function)
+            hash(key) # Unhashable types shouldn't be used as a key.
+
+            full_key = identity + key
+
+            if self.has_changed(identity, key) :
+                return self.update(object, function, identity, key, full_key)
+            else :
+                return self.cache[full_key]
+
+        return property(get)
+
+    def has_changed (self, identity, key) :
         try :
-            return cache[key]
+            last = self.history[identity]
         except KeyError :
-            value = cache[key] = function(self)
-            return value
-        except TypeError :
-            return function(self)
+            return True
+        else :
+            if key != last :
+                return True
+            else :
+                return False
 
-    return property(get)
+    def update (self, object, function, identity, key, full_key) :
+        self.history[identity] = key
+        value = self.cache[full_key] = function(object)
+        return value
+
+def composite (*args, **kw) :
+    ''' A decorator for making lazily evaluated cached read only properties. '''
+
+    return _Composite(*args, **kw)
 
 def pretty_truncate (string, cutoff=100, tail='...') :
     ''' This limits the length of a string in a somewhat aesthetically pleasing fashion. '''
@@ -65,46 +92,53 @@ def __test__ (ut) :
         count = 0
 
         def __init__ (self, z=0) :
-            self.x = 5
-            self.y = 2
-            self.z = z
+            self.x = [5]
+            self.y = [2]
+            self.z = [z]
 
-        @lazy_property
+        @composite(key=lambda self : (tuple(self.x), tuple(self.y)))
         def bar (self) :
             self.count += 1
             return self.x + self.y + self.z
 
-    class Baz (Foo) :
-        def __hash__ (self) :
-            raise TypeError()
+        @composite()
+        def baz (self) :
+            return 43
 
     foo = Foo()
     ut.assert_equal(foo.count, 0)
-    ut.assert_equal(foo.bar, 7)
+    ut.assert_equal(foo.bar, [5, 2, 0])
     ut.assert_equal(foo.count, 1)
-    ut.assert_equal(foo.bar, 7)
+    ut.assert_equal(foo.baz, 43)
+    ut.assert_equal(foo.bar, [5, 2, 0])
     ut.assert_equal(foo.count, 1)
+    foo.x = [3]
+    ut.assert_equal(foo.bar, [3, 2, 0])
+    ut.assert_equal(foo.count, 2)
+    ut.assert_equal(foo.bar, [3, 2, 0])
+    ut.assert_equal(foo.count, 2)
+    foo.y = [4]
+    ut.assert_equal(foo.bar, [3, 4, 0])
+    ut.assert_equal(foo.count, 3)
+    ut.assert_equal(foo.bar, [3, 4, 0])
+    ut.assert_equal(foo.count, 3)
 
-    other_foo = Foo(z=2)
-    ut.assert_equal(other_foo.bar, 9)
-    ut.assert_equal(foo.bar, 7)
+    other_foo = Foo(z=3)
+    ut.assert_equal(other_foo.bar, [5, 2, 3])
+    ut.assert_equal(other_foo.count, 1)
+    ut.assert_equal(foo.bar, [3, 4, 0])
+    ut.assert_equal(foo.count, 3)
 
     def cant_set (foo) :
         foo.bar = 34
     ut.assert_raises(lambda : cant_set(foo), AttributeError)
 
+    class Baz (Foo) :
+        @composite(key=lambda object : (object.x, object.y))
+        def bar (self) :
+            pass
     baz = Baz()
-    ut.assert_raises(lambda : hash(baz), TypeError)
-    ut.assert_equal(baz.count, 0)
-    ut.assert_equal(baz.bar, 7)
-    ut.assert_equal(baz.count, 1)
-    ut.assert_equal(baz.bar, 7)
-    ut.assert_equal(baz.count, 2)
-
-    other_baz = Baz(z=3)
-    ut.assert_equal(other_baz.bar, 10)
-    ut.assert_equal(baz.bar, 7)
-    ut.assert_raises(lambda : cant_set(baz), AttributeError)
+    ut.assert_raises(lambda : baz.bar, TypeError)
 
     ut.assert_equal(pretty_truncate('hello world', 6, '...'), 'hello...')
     ut.assert_equal(pretty_truncate('hello world', 10000, '...'), 'hello world')

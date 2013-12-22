@@ -64,6 +64,10 @@ class Score (Base) :
         return TypeError('Value comparisons with a <Score> object must be against an object which can be converted to '
                          'a floating point number.')
 
+    def __iter__ (self) :
+        yield self.object
+        yield self.score
+
     def __lt__ (self, other) :
         try :
             return self.score < float(other)

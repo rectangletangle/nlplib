@@ -1,4 +1,5 @@
 
+
 from nlplib.core.model import Document, Seq, Gram, Word, Index, NeuralNetwork, Node, IONode, Link
 from nlplib.core.model.backend.abstract import access as abstract
 from nlplib.general.iter import chunked

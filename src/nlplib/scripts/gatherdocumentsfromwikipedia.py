@@ -14,5 +14,5 @@ def add_documents_from_wikipedia_to_builtin_db (amount) :
         print(len(session.access.all_documents()))
 
 if __name__ == '__main__' :
-    add_documents_from_wikipedia_to_builtin_db(100)
+    add_documents_from_wikipedia_to_builtin_db(10)
 

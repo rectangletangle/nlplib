@@ -3,7 +3,7 @@
 import itertools
 
 from nlplib.core.model.base import Model
-from nlplib.general.iter import truncate, paired
+from nlplib.general.iterate import truncate, paired
 from nlplib.general import pretty_float, composite
 
 # todo : implement __all__ list

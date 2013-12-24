@@ -2,17 +2,16 @@
     url : http://www.sqlalchemy.org '''
 
 
-import sqlalchemy.exc
-
 from contextlib import contextmanager
 
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy import exc as sqlalchemy_exc
 from sqlalchemy import create_engine
 
-from nlplib.core.model.backend.sqlalchemy.map import default_mapped
-from nlplib.core.model.backend.sqlalchemy.access import Access
-from nlplib.core.model.backend import abstract
+from nlplib.core.model.sqlalchemy.map import default_mapped
+from nlplib.core.model.sqlalchemy.access import Access
 from nlplib.core.model.exc import IntegrityError, StorageError
+from nlplib.core.model import abstract
 
 __all__ = ['Session', 'Database']
 
@@ -25,7 +24,7 @@ class Session (abstract.Session) :
     def add (self, object) :
         try :
             self._sqlalchemy_session.add(object)
-        except sqlalchemy.exc.IntegrityError as exc :
+        except sqlalchemy_exc.IntegrityError as exc :
             raise IntegrityError(str(exc))
         else :
             return object
@@ -35,7 +34,7 @@ class Session (abstract.Session) :
 
         try :
             self._sqlalchemy_session.add_all(objects)
-        except sqlalchemy.exc.IntegrityError as exc :
+        except sqlalchemy_exc.IntegrityError as exc :
             raise IntegrityError(str(exc))
         else :
             return objects
@@ -58,18 +57,18 @@ class Database (abstract.Database) :
         try :
             yield Session(sqlalchemy_session)
             sqlalchemy_session.commit()
-        except sqlalchemy.exc.SQLAlchemyError as exc :
+        except sqlalchemy_exc.SQLAlchemyError as exc :
             sqlalchemy_session.rollback()
             raise StorageError(str(exc))
         finally :
             sqlalchemy_session.close()
 
 def __test__ (ut) :
-    from nlplib.core.model.backend.abstract import abstract_test
+    from nlplib.core.model.abstract import abstract_test
 
     abstract_test(ut, Database)
 
 if __name__ == '__main__' :
-    from nlplib.general.unit_test import UnitTest
+    from nlplib.general.unittest import UnitTest
     __test__(UnitTest())
 

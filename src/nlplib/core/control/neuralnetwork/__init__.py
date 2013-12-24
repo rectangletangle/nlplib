@@ -4,7 +4,7 @@ import itertools
 
 from nlplib.core.model import SessionDependent
 from nlplib.core.score import Score
-from nlplib.core import Base
+from nlplib.core.base import Base
 from nlplib.general import math
 
 __all__ = ['FeedForward', 'Backpropagate', 'Prediction', 'Train']
@@ -87,7 +87,6 @@ class Prediction (SessionDependent) :
     def __iter__ (self) :
         active_input_nodes = list(self.session.access.nodes_for_seqs(self.neural_network, self.seqs))
         for ouput_node in FeedForward(self.neural_network, active_input_nodes)() :
-
              yield Score(object=ouput_node.seq, score=ouput_node.charge)
 
 class Train (SessionDependent) :
@@ -119,9 +118,11 @@ class Train (SessionDependent) :
             yield (seqs[:middle], seqs[middle:])
 
 def __test__ (ut) :
-    from nlplib.core.control.neural_network.layered import MakeMultilayerPerceptron, static_io, static, random_affinity
+    from nlplib.core.control.neuralnetwork.layered import MakeMultilayerPerceptron, static_io, static, random_affinity
     from nlplib.core.score import Scored
     from nlplib.core.model import Database, NeuralNetwork, Word
+
+    # todo : not deterministic, probably set order doing it
 
     db = Database()
 
@@ -164,7 +165,7 @@ def __test__ (ut) :
                           0.107533, 0.264584, 0.080117, 0.147227, 0.100513, 0.237145, 0.080721, 0.146654, 0.095013,
                           0.209627, 0.080719, 0.145447, 0.090641, 0.18408, 0.079332, 0.142691, 0.086964]
 
-        print([round(error, 6) for error in Train(session, nn, patterns, 20, 0.2)] == correct_errors)
+        #print([round(error, 6) for error in Train(session, nn, patterns, 20, 0.2)] == correct_errors)
 
         ins_and_outs = [( (a,),   [('f', 0.893482), ('d', -0.085247), ('e', -0.22805)] ),
                         ( (b,),   [('d', 0.628165), ('e', 0.106708), ('f', -0.063184)] ),
@@ -173,16 +174,14 @@ def __test__ (ut) :
                         ( (a, c), [('f', 0.837407), ('e', 0.09891), ('d', -0.137624)]  ),
                         ( (b, c), [('e', 0.698783), ('d', 0.673296), ('f', 0.10256)]   )]
 
-        # todo : not deterministic, probably set order doing it
-
         for in_, out in ins_and_outs :
             strs_and_scores  = [(str(word), round(score, 6)) for word, score in Prediction(session, nn, in_)]
             sorted_by_scores = sorted(strs_and_scores, key=lambda both : both[1] * -1)
-            print(sorted_by_scores)
+            #print(sorted_by_scores)
             #ut.assert_equal(sorted_by_scores, out)
 
 def __profile__ () :
-    from nlplib.core.control.neural_network.layered import MakeMultilayerPerceptron, static_io, static
+    from nlplib.core.control.neuralnetwork.layered import MakeMultilayerPerceptron, static_io, static
     from nlplib.core.score import Scored
     from nlplib.core.model import Database, NeuralNetwork, Word
 
@@ -224,7 +223,7 @@ def __profile__ () :
     t()
 
 if __name__ == '__main__' :
-    from nlplib.general.unit_test import UnitTest
+    from nlplib.general.unittest import UnitTest
     __test__(UnitTest())
     #__profile__()
 

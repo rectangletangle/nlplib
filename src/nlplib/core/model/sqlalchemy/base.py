@@ -3,7 +3,7 @@
 from sqlalchemy.orm import mapper
 from sqlalchemy import Table
 
-from nlplib.core import Base
+from nlplib.core.base import Base
 
 __all__ = ['ClassMapper']
 

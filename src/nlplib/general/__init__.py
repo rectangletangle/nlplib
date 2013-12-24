@@ -3,7 +3,8 @@
 from functools import wraps
 from itertools import chain
 
-__all__ = ['composite', 'pretty_truncate', 'pretty_float', 'nonliteral_representation', 'literal_representation']
+__all__ = ['composite', 'pretty_truncate', 'pretty_float', 'nonliteral_representation', 'literal_representation',
+           'all_subclasses']
 
 class _Composite :
     def __init__ (self, key=lambda object : (), identity=lambda object : (id(object),)) :
@@ -35,10 +36,7 @@ class _Composite :
         except KeyError :
             return True
         else :
-            if key != last :
-                return True
-            else :
-                return False
+            return key != last
 
     def update (self, object, function, identity, key, full_key) :
         self.history[identity] = key
@@ -156,6 +154,6 @@ def __test__ (ut) :
     ut.assert_equal(literal_representation(object), 'str()')
 
 if __name__ == '__main__' :
-    from nlplib.general.unit_test import UnitTest
+    from nlplib.general.unittest import UnitTest
     __test__(UnitTest())
 

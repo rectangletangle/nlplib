@@ -1,6 +1,6 @@
 ''' This tests the models. '''
 
-from nlplib.core.control.neural_network.layered import static_io, MakeMultilayerPerceptron
+from nlplib.core.control.neuralnetwork.layered import static_io, MakeMultilayerPerceptron
 from nlplib.core.model import Database, Word, NeuralNetwork, Perceptron, Link, Node, IONode, Seq
 
 def _test_neural_network_model (ut) :
@@ -69,47 +69,11 @@ def _test_neural_network_links (ut) :
         ut.assert_equal(io_node.outputs, {node : link})
         ut.assert_equal(node.inputs, {io_node : link})
 
-def _test_perceptron (ut) :
-    # todo : remove
-    db = Database()
-
-    with db as session :
-        for nn, ins, outs in [(Perceptron('foo'), 'abc', 'def'), (NeuralNetwork('bar'), 'ghi', 'jkl')] :
-            config = (static_io(Word(char) for char in ins),)
-            config += tuple(10 for _ in range(10))
-            config += (static_io(Word(char) for char in outs),)
-            MakeMultilayerPerceptron(session.add(nn), config)()
-
-    from nlplib.general.time import timing
-
-    loops = 1000
-
-    @timing
-    @db.session
-    def nn (session) :
-        nn = session.access.neural_network('foo')
-        for _ in range(loops) :
-            for layer in nn :
-                pass
-
-
-    @timing
-    @db.session
-    def per (session) :
-        nn = session._sqlalchemy_session.query(Perceptron).one()
-        for _ in range(loops) :
-            for layer in nn :
-                pass
-
-    nn()
-    per()
-
 def __test__ (ut) :
     _test_neural_network_model(ut)
     _test_neural_network_links(ut)
-    _test_perceptron(ut)
 
 if __name__ == '__main__' :
-    from nlplib.general.unit_test import UnitTest
+    from nlplib.general.unittest import UnitTest
     __test__(UnitTest())
 

@@ -4,7 +4,7 @@ import itertools
 
 import numpy
 
-from nlplib.core import Base
+from nlplib.core.base import Base
 
 __all__ = ['NumpyNeuralNetwork']
 
@@ -54,16 +54,14 @@ class NumpyNeuralNetwork (Base) :
         ''' This updates the neural network with the contents of the numpy arrays. '''
 
         if charges :
-            for node, index in self.node_indexes.items() :
-                layer_index, node_index = index
+            for node, (layer_index, node_index) in self.node_indexes.items() :
                 node.charge = self.layers[layer_index][node_index]
 
-        for link, index in self.link_indexes.items() :
-            intralayer_index, node_index, link_index = index
+        for link, (intralayer_index, node_index, link_index) in self.link_indexes.items() :
             link.affinity = self.connections[intralayer_index][node_index, link_index]
 
 def __test__ (ut) :
-    from nlplib.core.control.neural_network.layered import MakeMultilayerPerceptron, static_io, static
+    from nlplib.core.control.neuralnetwork.layered import MakeMultilayerPerceptron, static_io, static
     from nlplib.core.score import Scored
     from nlplib.core.model import Database, NeuralNetwork, Word
 
@@ -101,6 +99,6 @@ def __test__ (ut) :
         #    ut.assert_equal(list(layer), [0.0] * size)
 
 if __name__ == '__main__' :
-    from nlplib.general.unit_test import UnitTest
+    from nlplib.general.unittest import UnitTest
     __test__(UnitTest())
 

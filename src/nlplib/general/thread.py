@@ -66,7 +66,7 @@ def __test__ (ut) :
     ut.assert_raises(lambda : simultaneously([raise_foo]), FooError)
 
 if __name__ == '__main__' :
-    from nlplib.general.unit_test import UnitTest
+    from nlplib.general.unittest import UnitTest
     __test__(UnitTest())
     __demo__()
 

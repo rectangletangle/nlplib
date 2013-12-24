@@ -4,8 +4,8 @@
 from sqlalchemy.orm import relationship, reconstructor, backref, column_property
 from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, UniqueConstraint, Table
 
-from nlplib.core.model.backend.sqlalchemy.map.base import ClassMapper
-from nlplib.core.model.natural_language import Document, Seq, Gram, Word, Index
+from nlplib.core.model.sqlalchemy.base import ClassMapper
+from nlplib.core.model.naturallanguage import Document, Seq, Gram, Word, Index
 
 class DocumentMapper (ClassMapper) :
     cls  = Document
@@ -19,8 +19,6 @@ class DocumentMapper (ClassMapper) :
                 Column('title', Text),
                 Column('url', String),
                 Column('created_on', DateTime))
-                # authors  = ?
-                # img_urls = Column(String)
 
     def mapper_kw (self) :
         association = Table('document_seq_association',
@@ -60,13 +58,6 @@ class GramMapper (ClassMapper) :
         return {'properties' : {'_id' : column_property(self.table.c.id, self.tables['seq'].c.id)},
                 'inherits' : self.classes['seq'],
                 'polymorphic_identity' : self.name}
-
-    def map (self) :
-        # This makes sure that SQLAlchemy creates a <gram.words> attribute when a gram object is being built (__init__
-        # isn't called).
-        reconstructor(self.cls._make_seqs)
-
-        return super().map()
 
 class WordMapper (ClassMapper) :
     cls  = Word

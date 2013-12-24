@@ -1,8 +1,8 @@
 
 
+from nlplib.core.model.abstract import access as abstract
 from nlplib.core.model import Document, Seq, Gram, Word, Index, NeuralNetwork, Node, IONode, Link
-from nlplib.core.model.backend.abstract import access as abstract
-from nlplib.general.iter import chunked
+from nlplib.general.iterate import chunked
 
 __all__ = ['Access']
 
@@ -50,7 +50,7 @@ class Access (abstract.Access) :
         return self.session._sqlalchemy_session.query(Index, Seq).filter(Index.document == document).join(Seq).all()
 
     def matching (self, strings, cls=Seq, _chunk_size=200) :
-        for chunked_strings in chunked(strings, _chunk_size) :
+        for chunked_strings in chunked(strings, _chunk_size, trail=True) :
             for match in self.session._sqlalchemy_session.query(cls).filter(cls.string.in_(chunked_strings)).all() :
                 yield match
 
@@ -58,13 +58,11 @@ class Access (abstract.Access) :
         return self.session._sqlalchemy_session.query(NeuralNetwork).filter_by(name=str(name)).first()
 
     def nodes_for_seqs (self, neural_network, seqs) :
-        # todo : This probably could be made more efficient using the SQL <in> operator.
+        io_node_query = self.session._sqlalchemy_session.query(IONode)
 
-        query_nodes = self.session._sqlalchemy_session.query(IONode).filter_by
+        ids = {seq._id for seq in seqs}
+        return io_node_query.filter_by(neural_network=neural_network).filter(IONode._seq_id.in_(ids)).all()
 
-        for seq in seqs :
-            for node in query_nodes(neural_network=neural_network, seq=seq).all() :
-                yield node
 
     def link (self, neural_network, input_node, output_node) :
         return self.session._sqlalchemy_session.query(Link).filter_by(neural_network=neural_network,
@@ -72,12 +70,12 @@ class Access (abstract.Access) :
                                                                       output_node=output_node).first()
 
 def __test__ (ut) :
-    from nlplib.core.model.backend.abstract.access import abstract_test
-    from nlplib.core.model.backend.sqlalchemy import Database
+    from nlplib.core.model.abstract.access import abstract_test
+    from nlplib.core.model.sqlalchemy import Database
 
     abstract_test(ut, Database)
 
 if __name__ == '__main__' :
-    from nlplib.general.unit_test import UnitTest
+    from nlplib.general.unittest import UnitTest
     __test__(UnitTest())
 

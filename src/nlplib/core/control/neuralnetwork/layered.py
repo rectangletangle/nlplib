@@ -3,8 +3,9 @@
 from random import uniform
 
 from nlplib.core.model import Link, Node, IONode
-from nlplib.general.iter import paired, united
-from nlplib.core import Base, exc
+from nlplib.general.iterate import paired, united
+from nlplib.core.base import Base
+from nlplib.core import exc
 
 # todo : implement __all__ list
 
@@ -124,6 +125,6 @@ def __test__ (ut) :
     ut.assert_doesnt_raise(lambda : MakeMultilayerPerceptron(None, [None, None]), NeuralNetworkConfigurationError)
 
 if __name__ == '__main__' :
-    from nlplib.general.unit_test import UnitTest
+    from nlplib.general.unittest import UnitTest
     __test__(UnitTest())
 

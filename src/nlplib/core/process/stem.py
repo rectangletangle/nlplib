@@ -18,6 +18,6 @@ def __test__ (ut) :
     ut.assert_equal(clean('dsfasdfa'), 'dsfasdfa')
 
 if __name__ == '__main__' :
-    from nlplib.general.unit_test import UnitTest
+    from nlplib.general.unittest import UnitTest
     __test__(UnitTest())
 

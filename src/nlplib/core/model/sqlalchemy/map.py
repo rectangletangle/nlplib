@@ -3,13 +3,12 @@
 from sqlalchemy.exc import ArgumentError
 from sqlalchemy import MetaData
 
-from nlplib.core.model.backend.sqlalchemy.map.base import ClassMapper
+from nlplib.core.model.sqlalchemy.base import ClassMapper
 
 # These modules must be imported so that the call to <all_subclasses> works properly.
-from nlplib.core.model.backend.sqlalchemy.map import natural_language
-from nlplib.core.model.backend.sqlalchemy.map import neural_network
+from nlplib.core.model.sqlalchemy import naturallanguage, neuralnetwork
 
-from nlplib.core import Base
+from nlplib.core.base import Base
 from nlplib.general import all_subclasses
 
 __all__ = ['Mapped', 'default_mapped']

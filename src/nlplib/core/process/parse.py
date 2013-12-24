@@ -3,9 +3,9 @@
 from nlplib.core.process.token import re_tokenize
 from nlplib.core.process import stem
 from nlplib.core.model import Word, Gram, Index
-from nlplib.general.iter import windowed
+from nlplib.general.iterate import windowed
+from nlplib.core.base import Base
 from nlplib.core.exc import NLPLibError
-from nlplib.core import Base
 
 __all__ = ['DontParse', 'HitStopSeq', 'Parsed']
 
@@ -21,10 +21,7 @@ class Parsed (Base) :
 
         self.document = document
 
-        if stop_seqs is None :
-            self.stop_seqs = set()
-        else :
-            self.stop_seqs = set(stop_seqs)
+        self.stop_seqs = set() if stop_seqs is None else set(stop_seqs)
 
         self.max_gram_length = max_gram_length
         self.yield_grams     = yield_grams
@@ -34,7 +31,6 @@ class Parsed (Base) :
         self.tokenize = tokenize
 
     def __repr__ (self, *args, **kw) :
-        # todo : make all repr's take the arguments <*args, **kw>.
         return super().__repr__(self.document, *args, **kw)
 
     def __iter__ (self) :
@@ -71,7 +67,7 @@ class Parsed (Base) :
         stems_and_tokens = self._stem_tokens(self.tokenize(self.document))
         max_gram_length = self.max_gram_length
 
-        for window in windowed(stems_and_tokens, size=max_gram_length) :
+        for window in windowed(stems_and_tokens, size=max_gram_length, trail=True) :
             for stems_and_tokens in self._sub_grams(window) :
                 stems, tokens = zip(*stems_and_tokens)
 
@@ -83,10 +79,8 @@ class Parsed (Base) :
                     yield (stems, tokens)
 
     def _check_if_is_stop_seq (self, gram_tuple) :
-        if len(gram_tuple) == 1 :
-            string_or_gram_tuple = gram_tuple[0]
-        else :
-            string_or_gram_tuple = gram_tuple
+
+        string_or_gram_tuple = gram_tuple if len(gram_tuple) != 1 else gram_tuple[0]
 
         if string_or_gram_tuple in self.stop_seqs :
             raise HitStopSeq
@@ -101,10 +95,7 @@ class Parsed (Base) :
         return Word(word_string, count=0)
 
     def _seq (self, strings) :
-        if len(strings) == 1 :
-            return self._word(strings[0])
-        else :
-            return self._gram(strings)
+        return self._word(strings[0]) if len(strings) == 1 else self._gram(strings)
 
     def _add_index (self, seq, tokens) :
         first_token, last_token = (tokens[0], tokens[-1])
@@ -168,12 +159,13 @@ def __test__ (ut) :
     # No actual stemming is done if the <str> function is used in place of a stemmer.
     ut.assert_equal(parsed_string(string, stem=str, stop_seqs={'The', 'ate'}), 'And cat the foOd and')
 
+    # todo : make remove *entire* stop gram
     string = 'the and the and if the and the the and platypus the'
     ut.assert_equal(parsed_string(string, max_gram_length=2, yield_grams=False,
                                   stop_seqs={('and', 'the'), 'platypus'}),
                     'the the and if the the the and the')
 
 if __name__ == '__main__' :
-    from nlplib.general.unit_test import UnitTest
+    from nlplib.general.unittest import UnitTest
     __test__(UnitTest())
 

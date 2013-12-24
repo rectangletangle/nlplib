@@ -3,14 +3,13 @@
 from functools import total_ordering
 
 from nlplib.core.model.base import Model
-from nlplib.general import pretty_truncate, literal_representation
+from nlplib.general import pretty_truncate, literal_representation, composite
 
 class Document (Model) :
     ''' A class for textual documents. '''
 
-    def __init__ (self, string, seqs=(), word_count=None, title=None, url=None, created_on=None) :
+    def __init__ (self, string, word_count=None, title=None, url=None, created_on=None) :
         self.string = string
-        self.seqs   = list(seqs)
         self.length = len(self.string)
 
         self.word_count = word_count
@@ -18,8 +17,10 @@ class Document (Model) :
         self.url        = url
         self.created_on = created_on
 
-    def __repr__ (self) :
-        return super().__repr__(pretty_truncate(self.string.replace('\n', ' '), 42))
+        self.seqs = []
+
+    def __repr__ (self, *args, **kw) :
+        return super().__repr__(pretty_truncate(self.string.replace('\n', ' '), 35), *args, **kw)
 
     def __str__ (self) :
         return self.string
@@ -35,13 +36,15 @@ class Seq (Model) :
     ''' This acts as a sequence of characters, similar to a string. The word and gram classes are built on top of
         this. '''
 
-    def __init__ (self, string, count=None, indexes=()) :
-        self.string  = string
-        self.count   = count
-        self.indexes = list(indexes)
+    def __init__ (self, string, count=None) :
+        self.string = string
+        self.count  = count
 
-    def __repr__ (self) :
-        return literal_representation(self, self.string) # Sequence objects can be represented as literal Python.
+        self.indexes = []
+
+    def __repr__ (self, *args, **kw) :
+        # Sequence objects can be represented as literal Python.
+        return literal_representation(self, self.string, *args, **kw)
 
     def __str__ (self) :
         return self.string
@@ -85,11 +88,6 @@ class Gram (Seq) :
 
         super().__init__(string, *args, **kw)
 
-        self._make_seqs()
-
-    def _make_seqs (self) :
-        self.seqs = tuple(self.string.split())
-
     def __iter__ (self) :
         return iter(self.seqs)
 
@@ -109,6 +107,10 @@ class Gram (Seq) :
             other = (other,)
 
         return Gram(self.seqs + other)
+
+    @composite(lambda self : (self.string,))
+    def seqs (self) :
+        return tuple(self.string.split())
 
 class Word (Seq) :
     ''' This class is used for representing words. Currently homographic words are not supported. '''
@@ -154,6 +156,6 @@ class Index (Model) :
     def __len__ (self) :
         return self.last_token - self.first_token
 
-    def __repr__ (self) :
-        return super().__repr__(self.first_token, self.document)
+    def __repr__ (self, *args, **kw) :
+        return super().__repr__(self.first_token, self.document, *args, **kw)
 

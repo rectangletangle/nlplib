@@ -3,7 +3,7 @@
 from functools import wraps
 from contextlib import contextmanager
 
-from nlplib.core import Base
+from nlplib.core.base import Base
 
 __all__ = ['Session', 'Database', 'abstract_test']
 
@@ -32,8 +32,8 @@ class Database (Base) :
 
         self._sessions_currently_open = []
 
-    def __repr__ (self) :
-        return super().__repr__(self.path)
+    def __repr__ (self, *args, **kw) :
+        return super().__repr__(self.path, *args, **kw)
 
     def __enter__ (self) :
         session = self._make_session()

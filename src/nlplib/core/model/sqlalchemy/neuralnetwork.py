@@ -5,8 +5,8 @@ from sqlalchemy.orm import relationship, column_property, backref
 from sqlalchemy.sql import and_, not_
 from sqlalchemy import Column, Boolean, Integer, Float, String, ForeignKey
 
-from nlplib.core.model.backend.sqlalchemy.map.base import ClassMapper
-from nlplib.core.model.neural_network import NeuralNetwork, Perceptron, NeuralNetworkElement, Link, Node, IONode
+from nlplib.core.model.sqlalchemy.base import ClassMapper
+from nlplib.core.model.neuralnetwork import NeuralNetwork, Perceptron, NeuralNetworkElement, Link, Node, IONode
 
 class NeuralNetworkMapper (ClassMapper) :
     cls  = NeuralNetwork

@@ -2,7 +2,7 @@
 from functools import wraps
 from time import time
 
-from nlplib.general.unit_test import _logging_function
+from nlplib.general.unittest import _logging_function
 
 __all__ = ['timing']
 

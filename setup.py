@@ -2,7 +2,7 @@
 
 import sys
 
-from version_check import version_check, import_check, version_as_string
+from versioncheck import version_check, import_check, version_as_string
 
 def check_for_nlplibs_dependencies (oldest_python_version_tolerated, oldest_sqlalchemy_version_tolerated,
                                     oldest_bs_version_tolerated) :
@@ -31,17 +31,14 @@ from src import nlplib
 packages = ['nlplib',
             'nlplib.core',
             'nlplib.core.model',
-            'nlplib.core.model.backend',
-            'nlplib.core.model.backend.abstract',
-            'nlplib.core.model.backend.sqlite3',
-            'nlplib.core.model.backend.sqlalchemy',
-            'nlplib.core.model.backend.sqlalchemy.map',
-            'nlplib.core.model.backend.django',
+            'nlplib.core.model.abstract',
+            'nlplib.core.model.sqlite3',
+            'nlplib.core.model.sqlalchemy',
+            'nlplib.core.model.django',
             'nlplib.core.process',
             'nlplib.core.score',
-            'nlplib.core.score.metric',
             'nlplib.core.control',
-            'nlplib.core.control.neural_network',
+            'nlplib.core.control.neuralnetwork',
             'nlplib.exterior',
             'nlplib.exterior.scrape',
             'nlplib.general',

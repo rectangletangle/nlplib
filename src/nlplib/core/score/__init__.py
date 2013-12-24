@@ -4,7 +4,7 @@ from functools import total_ordering
 
 from nlplib.general.math import normalize_values
 from nlplib.general import pretty_float
-from nlplib.core import Base
+from nlplib.core.base import Base
 
 __all__ = ['WeightedFunction', 'Score', 'Scored', 'ScoredAgainst', 'weighted']
 
@@ -17,11 +17,11 @@ class WeightedFunction (Base) :
     def __init__ (self, function, weight=1.0, low_is_better=False) :
         self.function = function
 
-        self.weight        = float(weight)
+        self.weight = float(weight)
         self.low_is_better = low_is_better
 
-    def __repr__ (self) :
-        return super().__repr__(self.function.__name__, str(hex(id(self))))
+    def __repr__ (self, *args, **kw) :
+        return super().__repr__(self.function.__name__, str(hex(id(self))), *args, **kw)
 
     def __call__ (self, *args, **kw) :
         return self.function(*args, **kw)
@@ -30,10 +30,7 @@ class WeightedFunction (Base) :
         ''' This adjusts the orientation of the score (if necessary), seeing as a low score in some metrics indicates a
             "better match." '''
 
-        if self.low_is_better :
-            return (1.0 - normalized_score)
-        else :
-            return normalized_score
+        return (1.0 - normalized_score) if self.low_is_better else normalized_score
 
 @total_ordering
 class Score (Base) :
@@ -45,11 +42,7 @@ class Score (Base) :
         self.object = object
 
         self.score = score
-
-        if subscores is None :
-            self.subscores = {}
-        else :
-            self.subscores = subscores
+        self.subscores = {} if subscores is None else subscores
 
     def __repr__ (self, *args, **kw) :
         return super().__repr__(self.object, score=pretty_float(self.score), *args, **kw)
@@ -65,6 +58,8 @@ class Score (Base) :
                          'a floating point number.')
 
     def __iter__ (self) :
+        ''' This allows for use of Python's multiple assignment syntax. '''
+
         yield self.object
         yield self.score
 
@@ -147,7 +142,7 @@ def weighted (function, *args, **kw) :
     return WeightedFunction(function, *args, **kw)
 
 def __test__ (ut) :
-    from nlplib.core.score.metric import distance, count
+    from nlplib.core.score.metric import levenshtein_distance, count
     from nlplib.core.model import Word
 
     word = Word('the')
@@ -165,7 +160,7 @@ def __test__ (ut) :
         weighted_count = weighted(lambda object, similar : count(similar),
                                   weight=count_weight)
 
-        weighted_levenshtein_distance = weighted(distance.levenshtein,
+        weighted_levenshtein_distance = weighted(levenshtein_distance,
                                                  weight=levenshtein_distance_weight,
                                                  low_is_better=True)
 
@@ -183,7 +178,7 @@ def __test__ (ut) :
     # Tests behavior when things are missing.
     ut.assert_equal(list(ScoredAgainst(word, [], [])), [])
     ut.assert_equal(list(ScoredAgainst(word, [],
-                    [weighted(distance.levenshtein, weight=2.0, low_is_better=True)])), [])
+                    [weighted(levenshtein_distance, weight=2.0, low_is_better=True)])), [])
 
     # Without scoring functions, this essentially just sorts the word objects alphabetically.
     ut.assert_equal(list(ScoredAgainst(word, words, []).ranked()), sorted(words))
@@ -206,6 +201,6 @@ def __test__ (ut) :
                      Word('platypus')])
 
 if __name__ == '__main__' :
-    from nlplib.general.unit_test import UnitTest
+    from nlplib.general.unittest import UnitTest
     __test__(UnitTest())
 

@@ -1,13 +1,12 @@
 ''' This module contains a bunch of functions which facilitate specialized iteration patterns. '''
 
-# todo : make windowed trail or not, so chop isn't needed
 
 import itertools
 import collections
 
 __all__ = ['windowed', 'chunked', 'chop', 'generates', 'paired', 'united']
 
-def windowed (iterable, size, step=1) :
+def windowed (iterable, size, step=1, trail=False) :
     ''' This function yields a tuple of a given size, then steps forward. If the step is smaller than the size, the
         function yields "overlapped" tuples. '''
 
@@ -23,14 +22,15 @@ def windowed (iterable, size, step=1) :
                 yield window
                 window = window[step:]
 
-        while len(window) :
-            yield window
-            window = window[step:]
+        if trail :
+            while len(window) :
+                yield window
+                window = window[step:]
 
-def chunked (iterable, size) :
+def chunked (iterable, size, trail=False) :
     ''' This breaks up an iterable into multiple chunks (tuples) of a specific size. '''
 
-    return windowed(iterable, size=size, step=size)
+    return windowed(iterable, size=size, step=size, trail=trail)
 
 def chop (iterable, size) :
     ''' This removes any chunks at the end of an iterable, below a certain size. '''
@@ -70,23 +70,7 @@ def truncate (iterable, amount) :
             yield popleft()
 
 def paired (iterable) :
-    size = 2
-    windows = windowed(iterable, size, step=1)
-
-    # todo : change behavior for iterable with len == 1 to [], to go allong with the chop
-    try :
-        item = next(windows)
-    except StopIteration :
-        pass
-    else :
-        try :
-            first, second = item
-        except ValueError :
-            yield item
-        else :
-            yield (first, second)
-
-        yield from chop(windows, size)
+    return windowed(iterable, size=2, step=1)
 
 def united (paired) :
     ''' This can be used to efficiently undo the effects of the <paired> function on an iterable. '''
@@ -94,35 +78,33 @@ def united (paired) :
     paired = iter(paired)
 
     try :
-        item = next(paired)
-    except StopIteration :
+        first, second = next(paired)
+    except (StopIteration, ValueError) :
         pass
     else :
-        try :
-            first, second = item
-        except ValueError :
-            yield item[0]
-        else :
-            yield first
-            yield second
-
+        yield first
+        yield second
         for first, second in paired :
             yield second
 
 def __test__ (ut) :
-    ut.assert_equal(list(chunked(range(7), 3)), [(0, 1, 2), (3, 4, 5), (6,)] )
-    ut.assert_equal(list(chunked(range(6), 3)), [(0, 1, 2), (3, 4, 5)]       )
-    ut.assert_equal(list(chunked(range(2), 3)), [(0, 1)]                     )
-    ut.assert_equal(list(chunked(range(0), 3)), []                           )
+    ut.assert_equal(list(windowed(range(6), 3, 3)), [(0, 1, 2), (3, 4, 5)])
+    ut.assert_equal(list(windowed(range(6), 1, 1)), [(0,), (1,), (2,), (3,), (4,), (5,)])
 
-    ut.assert_equal(list(windowed(range(4), 3, 1)), [(0, 1, 2), (1, 2, 3), (2, 3), (3,)] )
-    ut.assert_equal(list(windowed(range(6), 3, 3)), [(0, 1, 2), (3, 4, 5)]               )
-    ut.assert_equal(list(windowed(range(6), 1, 1)), [(0,), (1,), (2,), (3,), (4,), (5,)] )
+    ut.assert_equal(list(windowed(range(4), 3, 1, trail=True)), [(0, 1, 2), (1, 2, 3), (2, 3), (3,)])
+
+    ut.assert_equal(list(chunked(range(7), 3)), [(0, 1, 2), (3, 4, 5)] )
+    ut.assert_equal(list(chunked(range(6), 3)), [(0, 1, 2), (3, 4, 5)] )
+    ut.assert_equal(list(chunked(range(2), 3)), []                     )
+    ut.assert_equal(list(chunked(range(0), 3)), []                     )
+
+    ut.assert_equal(list(chunked(range(4), 3, trail=True)), [(0, 1, 2), (3,)])
+    ut.assert_equal(list(chunked(range(2), 3, trail=True)), [(0, 1)])
 
     size = 3
     ut.assert_equal(list(chop(windowed(range(4), size, 1), size)), [(0, 1, 2), (1, 2, 3)] )
     ut.assert_equal(list(chop(chunked(range(7), size), size)),     [(0, 1, 2), (3, 4, 5)] )
-    ut.assert_equal(list(chop(paired([0]), 1)), [(0,)])
+    ut.assert_equal(list(chop(paired([0]), 1)), [])
     ut.assert_equal(list(chop(paired([0]), 0)), [])
     ut.assert_equal(list(chop(paired([0]), -1)), [])
 
@@ -150,17 +132,17 @@ def __test__ (ut) :
     ut.assert_equal(list(truncate(range(10), 10)),  []              )
 
     ut.assert_equal(list(paired([])), [])
-    ut.assert_equal(list(paired([0])), [(0,)])
+    ut.assert_equal(list(paired([0])), [])
     ut.assert_equal(list(paired(range(4))), [(0, 1), (1, 2), (2, 3)])
     ut.assert_equal(list(paired(range(5))), [(0, 1), (1, 2), (2, 3), (3, 4)])
 
     ut.assert_equal(list(united(paired([]))), [])
-    ut.assert_equal(list(united(paired([0]))), [0])
+    ut.assert_equal(list(united(paired([0]))), [])
     ut.assert_equal(list(united(paired([0, 1]))), [0, 1])
     ut.assert_equal(list(united(paired(range(3)))), list(range(3)))
     ut.assert_equal(list(united(paired(range(12)))), list(range(12)))
 
 if __name__ == '__main__' :
-    from nlplib.general.unit_test import UnitTest
+    from nlplib.general.unittest import UnitTest
     __test__(UnitTest())
 

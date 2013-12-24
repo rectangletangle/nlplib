@@ -2,7 +2,7 @@
 
 from nlplib.core.process.token import split
 from nlplib.core.model import Gram
-from nlplib.core import Base
+from nlplib.core.base import Base
 
 __all__ = ['Window', 'Concordance']
 
@@ -18,8 +18,8 @@ class Window (Base) :
         self.before = before
         self.after  = after
 
-    def __repr__ (self) :
-        return super().__repr__(before=self.before, after=self.after)
+    def __repr__ (self, *args, **kw) :
+        return super().__repr__(before=self.before, after=self.after, *args, **kw)
 
     def slice (self, start, end=None) :
         if end is None :
@@ -47,8 +47,8 @@ class Concordance (Base) :
         except AttributeError :
             return 0
 
-    def __repr__ (self) :
-        return super().__repr__(self.seq)
+    def __repr__ (self, *args, **kw) :
+        return super().__repr__(self.seq, *args, **kw)
 
     def raw (self) :
         ''' This yields tuples that contain the raw string (unmodified whitespace and all) which the sequence object
@@ -150,5 +150,5 @@ def __test__ (ut) :
             test_count(session.access.gram, string, count)
 
 if __name__ == '__main__' :
-    from nlplib.general.unit_test import UnitTest
+    from nlplib.general.unittest import UnitTest
     __test__(UnitTest())

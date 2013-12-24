@@ -2,7 +2,7 @@
 
 import re
 
-from nlplib.core import Base
+from nlplib.core.base import Base
 
 __all__ = ['Token', 're_tokenize', 'split', 'halve', 'map_over_indexes']
 
@@ -15,8 +15,8 @@ class Token (Base) :
         self.first_character_index = first_character_index
         self.last_character_index  = last_character_index
 
-    def __repr__ (self) :
-        return super().__repr__(self.string)
+    def __repr__ (self, *args, **kw) :
+        return super().__repr__(self.string, *args, **kw)
 
     def __str__ (self) :
         return self.string
@@ -61,6 +61,6 @@ def __test__ (ut) :
                     [('', 'hello'), ('h', 'ello'), ('he', 'llo'), ('hel', 'lo'), ('hell', 'o'), ('hello', '')])
 
 if __name__ == '__main__' :
-    from nlplib.general.unit_test import UnitTest
+    from nlplib.general.unittest import UnitTest
     __test__(UnitTest())
 

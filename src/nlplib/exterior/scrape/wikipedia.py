@@ -48,5 +48,3 @@ def __demo__ () :
 if __name__ == '__main__' :
     __demo__()
 
-    for d in randomly_scraped_from_wikipedia(-1) :
-        print(repr(d))

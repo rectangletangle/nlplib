@@ -3,10 +3,10 @@ from functools import wraps
 from urllib.request import build_opener, URLError
 
 from nlplib.general.thread import simultaneously
-from nlplib.general.iter import chunked
-from nlplib.general import pretty_truncate
+from nlplib.general.iterate import chunked
+from nlplib.core.base import Base
 from nlplib.core.exc import NLPLibError
-from nlplib.core import Base
+from nlplib.general import pretty_truncate
 
 __all__ = ['CouldNotOpenURL', 'Response', 'Scraped', 'scraper']
 
@@ -58,7 +58,7 @@ class Scraped (Base) :
 
         opener = self._make_opener()
 
-        for urls in chunked(self.urls, self.chunk_size) :
+        for urls in chunked(self.urls, self.chunk_size, trail=True) :
             responses = []
 
             scraping_functions = (lambda url=url : responses.append(self._scrape(opener, url))
@@ -115,7 +115,7 @@ def scraper (*args, cls=Scraped, **kw) :
     return wrapper
 
 def __test__ (ut) :
-    from nlplib.general.unit_test import mock
+    from nlplib.general.unittest import mock
 
     urls = {'a' : mock(geturl=lambda : 'a', read=lambda : 'aaa'),
             'b' : mock(geturl=lambda : 'b', read=lambda : 'bbb'),
@@ -123,6 +123,8 @@ def __test__ (ut) :
             'd' : mock(geturl=lambda : 'd', read=lambda : 'ddd')}
 
     def mocked (cls) :
+        # A mockup is made, so that the test doesn't depend on external resources (the internet).
+
         def open_ (url) :
             def enter (*args, **kw) :
                 try :
@@ -163,6 +165,7 @@ def __test__ (ut) :
     scraped = mocked(Scraped)(['a', 'a', 'a'], revisit=False)
     ut.assert_equal(list(scraped), [Response('a', 'aaa', 'a')])
 
+    # The scraper class should be able to handle infinite generators; if not, this test will take forever!
     @scraper(cls=mocked(Scraped), revisit=True)
     def foo () :
         while True :
@@ -170,7 +173,7 @@ def __test__ (ut) :
                 yield url
 
     for i, response in enumerate(foo()) :
-        # todo : unit test
+        # This shouldn't take too long to finish.
         if i == 10 :
             break
 
@@ -185,7 +188,7 @@ def __demo__ () :
         print(repr(response))
 
 if __name__ == '__main__' :
-    from nlplib.general.unit_test import UnitTest
+    from nlplib.general.unittest import UnitTest
     __test__(UnitTest())
     __demo__()
 

@@ -142,7 +142,7 @@ def weighted (function, *args, **kw) :
     return WeightedFunction(function, *args, **kw)
 
 def __test__ (ut) :
-    from nlplib.core.score.metric import levenshtein_distance, count
+    from nlplib.core.control.score.metric import levenshtein_distance, count
     from nlplib.core.model import Word
 
     word = Word('the')

@@ -62,7 +62,7 @@ class NumpyNeuralNetwork (Base) :
 
 def __test__ (ut) :
     from nlplib.core.control.neuralnetwork.layered import MakeMultilayerPerceptron, static_io, static
-    from nlplib.core.score import Scored
+    from nlplib.core.control.score import Scored
     from nlplib.core.model import Database, NeuralNetwork, Word
 
     db = Database()

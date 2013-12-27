@@ -4,7 +4,7 @@ from datetime import datetime
 from itertools import count
 
 from nlplib.exterior.scrape.parse import parse_html
-from nlplib.core.scrape import scraper, Scraped
+from nlplib.general.scrape import scraper, Scraped
 from nlplib.core.process.token import split
 from nlplib.core.model import Document
 from nlplib.general.thread import simultaneously

@@ -2,8 +2,8 @@
 
 import itertools
 
+from nlplib.core.control.score import Score
 from nlplib.core.model import SessionDependent
-from nlplib.core.score import Score
 from nlplib.core.base import Base
 from nlplib.general import math
 
@@ -119,7 +119,7 @@ class Train (SessionDependent) :
 
 def __test__ (ut) :
     from nlplib.core.control.neuralnetwork.layered import MakeMultilayerPerceptron, static_io, static, random_affinity
-    from nlplib.core.score import Scored
+    from nlplib.core.control.score import Scored
     from nlplib.core.model import Database, NeuralNetwork, Word
 
     # todo : not deterministic, probably set order doing it
@@ -182,7 +182,7 @@ def __test__ (ut) :
 
 def __profile__ () :
     from nlplib.core.control.neuralnetwork.layered import MakeMultilayerPerceptron, static_io, static
-    from nlplib.core.score import Scored
+    from nlplib.core.control.score import Scored
     from nlplib.core.model import Database, NeuralNetwork, Word
 
     db = Database()

@@ -93,8 +93,8 @@ def _test_window (ut) :
     ut.assert_equal(some_indexes[Window(0, 1).slice(5)],    [5, 6]          )
 
 def __test__ (ut) :
+    from nlplib.core.process.index import Indexed
     from nlplib.core.model import Database, Document, Word
-    from nlplib.core.index import Indexed
 
     _test_window(ut)
 

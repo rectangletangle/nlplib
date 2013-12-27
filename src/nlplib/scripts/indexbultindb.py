@@ -1,7 +1,7 @@
 
 
+from nlplib.core.process.index import Indexed
 from nlplib.general.time import timing
-from nlplib.core.index import Indexed
 
 def index_db (db) :
     total = 0

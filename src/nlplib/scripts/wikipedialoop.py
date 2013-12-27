@@ -1,7 +1,7 @@
 
 
 from nlplib.exterior.scrape.wikipedia import RandomlyScrapedFromWikipedia
-from nlplib.core.scrape import scraper
+from nlplib.general.scrape import scraper
 
 __all__ = ['wikipedia_loop']
 

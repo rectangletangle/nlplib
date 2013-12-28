@@ -7,7 +7,9 @@ __all__ = ['UnitTest', 'mock', 'test_everything']
 
 _log_switch = {None     : lambda output : output,
                'silent' : lambda output : output,
-               'print'  : lambda output : print(output)}
+               False    : lambda output : output,
+               'print'  : lambda output : print(output),
+               True     : lambda output : print(output)}
 
 def _logging_function (mode) : # This is used in <nlplib.general.time> too.
     return _log_switch.get(mode, mode)

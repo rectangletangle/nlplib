@@ -63,18 +63,24 @@ class Seq (Model) :
 
     def __eq__ (self, other) :
         try :
-            return self.string == other.string
+            return self.__class__ is other.__class__ and self.string == str(other)
         except AttributeError :
             return False
 
     def __lt__ (self, other) :
-        try :
-            return self.string < other.string
-        except AttributeError :
-            return True
+        if self.__class__ is other.__class__ :
+            return self.string < str(other)
+        else :
+            try :
+                cls_index = _seq_cls_order.index(self.__class__)
+                other_cls_index = _seq_cls_order.index(other.__class__)
+            except ValueError :
+                return True
+            else :
+                return cls_index < other_cls_index
 
     def __hash__ (self) :
-        return hash(self.string)
+        return hash((self.__class__, self.string))
 
 class Gram (Seq) :
     ''' This class is used for representing n-grams of word strings. '''
@@ -116,6 +122,8 @@ class Word (Seq) :
     ''' This class is used for representing words. Currently homographic words are not supported. '''
 
     pass
+
+_seq_cls_order = (Seq, Word, Gram)
 
 class Index (Model) :
     ''' This class is used for indexing sequences (words or n-grams) in a document. '''

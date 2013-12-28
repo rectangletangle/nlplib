@@ -45,7 +45,7 @@ class Score (Base) :
         self.subscores = {} if subscores is None else subscores
 
     def __repr__ (self, *args, **kw) :
-        return super().__repr__(self.object, score=pretty_float(self.score), *args, **kw)
+        return super().__repr__(pretty_float(self.score), self.object, *args, **kw)
 
     def __float__ (self) :
         return float(self.score)
@@ -202,5 +202,5 @@ def __test__ (ut) :
 
 if __name__ == '__main__' :
     from nlplib.general.unittest import UnitTest
-    __test__(UnitTest())
+    __test__(UnitTest(True))
 

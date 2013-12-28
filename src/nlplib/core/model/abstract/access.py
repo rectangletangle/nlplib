@@ -1,7 +1,7 @@
 
 
 from nlplib.core.process.token import split
-from nlplib.core.model import SessionDependent, Seq
+from nlplib.core.model import SessionDependent, Document, Seq, Gram, Word, Index, NeuralNetwork, IONode
 
 __all__ = ['Access', 'abstract_test']
 
@@ -13,7 +13,11 @@ class Access (SessionDependent) :
         ''' This returns the word objects corresponding to the word substrings within a string. If no word object is
             found for a particular substring, <None> is used. '''
 
-        return [self.word(word_string) for word_string in splitter(string)]
+        if isinstance(string, str) :
+            return [self.word(word_string) for word_string in splitter(string)]
+        else :
+            # Treat string as a collection of strings.
+            return [self.word(word_string) for word_string in string]
 
     def vocabulary (self) :
         return self.all_words()
@@ -21,32 +25,50 @@ class Access (SessionDependent) :
     def corpus (self) :
         return self.all_documents()
 
-    def all_documents (self) :
+    def _all (self, cls, chunk_size=100) :
+        raise NotImplementedError
+
+    def all_documents (self, *args, **kw) :
         ''' This returns all of the document objects in the database. '''
 
-        raise NotImplementedError
+        return self._all(Document, *args, **kw)
 
-    def all_seqs (self) :
+    def all_seqs (self, *args, **kw) :
+        return self._all(Seq, *args, **kw)
 
-        raise NotImplementedError
-
-    def all_grams (self) :
+    def all_grams (self, *args, **kw) :
         ''' This returns all of the gram objects in the database. '''
 
-        raise NotImplementedError
+        return self._all(Gram, *args, **kw)
 
-    def all_words (self) :
+    def all_words (self, *args, **kw) :
         ''' This returns all of the word objects in the database. '''
 
+        return self._all(Word, *args, **kw)
+
+    def all_indexes (self, *args, **kw) :
+        return self._all(Index, *args, **kw)
+
+    def all_neural_networks (self, *args, **kw) :
+        return self._all(NeuralNetwork, *args, **kw)
+
+    def _seq (self, cls, string) :
         raise NotImplementedError
 
-    def all_indexes (self) :
+    def seq (self, string) :
+        return self._seq(Seq, string)
 
-        raise NotImplementedError
+    def gram (self, gram_string_or_tuple) :
+        ''' This returns the gram object corresponding to a string or tuple, or <None>.
+            gram_string = 'the cat ate'
+            gram_tuple  = ('the', 'cat', 'ate') '''
 
-    def all_neural_networks (self) :
+        return self._seq(Gram, str(Gram(gram_string_or_tuple)))
 
-        raise NotImplementedError
+    def word (self, word_string) :
+        ''' This returns the word object corresponding to a string, or <None>. '''
+
+        return self._seq(Word, str(word_string))
 
     def specific (self, cls, id) :
         ''' This returns a specific object by id. '''
@@ -58,41 +80,35 @@ class Access (SessionDependent) :
 
         raise NotImplementedError
 
-    def seq (self, string) :
-        raise NotImplementedError
-
-    def gram (self, gram_string_or_tuple) :
-        ''' This returns the gram object corresponding to a string or tuple, or <None>.
-            gram_string = 'the cat ate'
-            gram_tuple  = ('the', 'cat', 'ate') '''
-
-        raise NotImplementedError
-
-    def word (self, word_string) :
-        ''' This returns the word object corresponding to a string, or <None>. '''
-
-        raise NotImplementedError
-
     def indexes (self, document) :
         ''' This returns all of the indexes (with their sequences) referencing the document. '''
 
         raise NotImplementedError
 
-    def matching (self, strings, cls=Seq, _chunk_size=200) :
+    def matching (self, strings, cls=Seq, chunk_size=100) :
         ''' This returns sequences (grams and words) that match the given list of strings.
 
             Note : This method is typically implemented using the SQL <IN> operator. Some database systems have
-            stipulations regarding the maximum size of the set used for membership testing. The optional <_chunk_size>
+            stipulations regarding the maximum size of the set used for membership testing. The optional <chunk_size>
             argument allows the set to be broken up into multiple smaller sets (chunks), with a length corresponding to
-            <_chunk_size>, so that the set may fall under this limit. '''
+            <chunk_size>, so that the set may fall under this limit. '''
 
         raise NotImplementedError
 
     def neural_network (self, name) :
         raise NotImplementedError
 
-    def nodes_for_seqs (self, seqs) :
+    def nn (self, *args, **kw) :
+        return self.neural_network(*args, **kw)
+
+    def nodes_for_seqs (self, seqs, input=None) :
         raise NotImplementedError
+
+    def input_nodes_for_seqs (self, *args, **kw) :
+        return self.nodes_for_seqs(*args, input=True, **kw)
+
+    def output_nodes_for_seqs (self, *args, **kw) :
+        return self.nodes_for_seqs(*args, input=False, **kw)
 
     def link (self, neural_network, input_node, output_node) :
         raise NotImplementedError
@@ -142,4 +158,32 @@ def abstract_test (ut, db_cls) :
         ut.assert_equal(sorted(session.access.matching(['a', 'b'])), mock((Seq, Gram, Word), 'ab'))
         ut.assert_equal(sorted(session.access.matching(['a', 'b'], Word)), mock((Word,), 'ab'))
         ut.assert_equal(sorted(session.access.matching([])), [])
+
+    db = db_cls()
+
+    with db as session :
+        session.add(NeuralNetwork('nn'))
+        for i in range(3) :
+            session.add(Word(str(i)))
+
+    with db as session :
+        nn = session.access.nn('nn')
+        for i, word in enumerate(session.access.all_words()) :
+            session.add(IONode(nn, word, i % 2 == 0))
+        session.add(IONode(nn, None, (i + 1) % 2 == 0))
+
+    with db as session :
+        nn = session.access.nn('nn')
+
+        def seqs (query, *args, **kw) :
+            return {node.seq for node in query(*args, **kw)}
+
+        word = session.access.word
+
+        ut.assert_equal(seqs(session.access.input_nodes_for_seqs, nn, [None, word('0'), word('1')]),
+                        {Word('0')})
+        ut.assert_equal(seqs(session.access.output_nodes_for_seqs, nn, [None, word('0'), word('1')]),
+                        {None, Word('1')})
+        ut.assert_equal(seqs(session.access.nodes_for_seqs, nn, [None, word('0'), word('1')]),
+                        {None, Word('0'), Word('1')})
 

@@ -123,7 +123,7 @@ def __test__ (ut) :
         session.add(Document(text))
 
     with db as session :
-        parsed = Parsed(session.access.all_documents()[0], max_gram_length=max_gram_length)
+        parsed = Parsed(list(session.access.all_documents())[0], max_gram_length=max_gram_length)
         unique_seqs = set(parsed)
 
         words = [seq for seq in unique_seqs if isinstance(seq, Word)]
@@ -139,9 +139,9 @@ def __test__ (ut) :
 
     # The parser shouldn't have any database related side-effects.
     with db as session :
-        ut.assert_equal(len(session.access.all_seqs()), 0)
-        ut.assert_equal(len(session.access.all_indexes()), 0)
-        ut.assert_equal(len(session.access.all_documents()), 1)
+        ut.assert_equal(len(list(session.access.all_seqs())), 0)
+        ut.assert_equal(len(list(session.access.all_indexes())), 0)
+        ut.assert_equal(len(list(session.access.all_documents())), 1)
 
     def parsed_string (string, *args, **kw) :
         return ' '.join(str(seq) for seq in Parsed(string, *args, **kw))

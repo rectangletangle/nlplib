@@ -119,7 +119,7 @@ class IONodeMapper (ClassMapper) :
 
     def columns (self) :
         return (Column('id', Integer, ForeignKey('node.id'), primary_key=True),
-                Column('seq_id', Integer, ForeignKey('seq.id'), nullable=False),
+                Column('seq_id', Integer, ForeignKey('seq.id')),
                 Column('is_input', Boolean, nullable=False))
 
     def mapper_kw (self) :

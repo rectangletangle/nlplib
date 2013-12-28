@@ -40,7 +40,7 @@ class Response (Base) :
 class Scraped (Base) :
     ''' A base web scraper class. '''
 
-    def __init__ (self, urls, revisit=True, silent=False, chunk_size=5, max_workers=None, user_agent='nlplib',
+    def __init__ (self, urls, revisit=True, silent=False, chunk_size=20, max_workers=None, user_agent='nlplib',
                   serialize=False) :
 
         self.urls = urls

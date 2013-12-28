@@ -35,7 +35,7 @@ def random_affinity (floor=-1.0, ceiling=1.0) :
 
 class MakeMultilayerPerceptron (Base) :
 
-    def __init__ (self, neural_network, config, affinity=random_affinity) :
+    def __init__ (self, neural_network, *config, affinity=random_affinity) :
         self.neural_network = neural_network
         self.config = NeuralNetworkConfiguration(*config)
         self.affinity = affinity
@@ -91,14 +91,12 @@ def __test__ (ut) :
             session.add(Word(char))
 
     with db as session :
-
-        config = [static_io(session.access.words('a b c')),
-                  static(10),
-                  static(4),
-                  static(5),
-                  static_io(session.access.words('d e'))]
-
-        MakeMultilayerPerceptron(session.access.neural_network('foo'), config)()
+        MakeMultilayerPerceptron(session.access.neural_network('foo'),
+                                 static_io(session.access.words('a b c')),
+                                 static(10),
+                                 static(4),
+                                 static(5),
+                                 static_io(session.access.words('d e')))()
 
     with db as session :
         nn = session.access.neural_network('foo')
@@ -120,9 +118,9 @@ def __test__ (ut) :
             for node in layer :
                 ut.assert_equal(len(node.outputs), count)
 
-    ut.assert_raises(lambda : MakeMultilayerPerceptron(None, []), NeuralNetworkConfigurationError)
-    ut.assert_raises(lambda : MakeMultilayerPerceptron(None, [None]), NeuralNetworkConfigurationError)
-    ut.assert_doesnt_raise(lambda : MakeMultilayerPerceptron(None, [None, None]), NeuralNetworkConfigurationError)
+    ut.assert_raises(lambda : MakeMultilayerPerceptron(None, *[]), NeuralNetworkConfigurationError)
+    ut.assert_raises(lambda : MakeMultilayerPerceptron(None, *[None]), NeuralNetworkConfigurationError)
+    ut.assert_doesnt_raise(lambda : MakeMultilayerPerceptron(None, *[None, None]), NeuralNetworkConfigurationError)
 
 if __name__ == '__main__' :
     from nlplib.general.unittest import UnitTest

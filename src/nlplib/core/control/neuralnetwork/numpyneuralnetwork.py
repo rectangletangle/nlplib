@@ -80,7 +80,7 @@ def __test__ (ut) :
                   static(17),
                   static_io(session.access.words(' '.join(str(i) for i in range(5, 8)))))
 
-        MakeMultilayerPerceptron(session.access.neural_network('foo'), config)()
+        MakeMultilayerPerceptron(session.access.neural_network('foo'), *config)()
 
     with db as session :
         nn = session.access.neural_network('foo')

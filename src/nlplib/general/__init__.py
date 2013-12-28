@@ -57,8 +57,10 @@ def pretty_truncate (string, cutoff=100, tail='...') :
         # This happens if <cutoff> is None
         return string
 
+_PrettyFloat = type('_PrettyFloat', (float,), {'__repr__' : lambda self : '%0.4f' % self})
+
 def pretty_float (value) :
-    return round(float(value), 5)
+    return _PrettyFloat(value)
 
 def _representation_args_and_kw (*args, **kw) :
     # <sorted> is used to make the keyword argument order deterministic.
@@ -140,6 +142,8 @@ def __test__ (ut) :
 
     ut.assert_equal(pretty_truncate('hello world', 6, '...'), 'hello...')
     ut.assert_equal(pretty_truncate('hello world', 10000, '...'), 'hello world')
+
+    ut.assert_equal(repr(pretty_float(1.30)), '1.3000')
 
     object, args, kw = ('', (1, 2, 3), {'foo' : 35, 'bar' : 40})
 

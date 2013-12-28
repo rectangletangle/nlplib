@@ -82,7 +82,7 @@ class IndexMapper (ClassMapper) :
                 Column('first_character', Integer),
                 Column('last_character', Integer),
                 Column('tokenization_algorithm', String),
-                Column('document_id', Integer, ForeignKey('document.id'), nullable=False),
+                Column('document_id', Integer, ForeignKey('document.id'), nullable=False, index=True),
                 Column('seq_id', Integer, ForeignKey('seq.id'), nullable=False))
 
     def mapper_kw (self) :

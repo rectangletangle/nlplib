@@ -66,8 +66,17 @@ class Indexed (SessionDependent) :
     ''' This is used to construct a textual index of documents within the database. This allows for rapid word and
         n-gram (groups of words) lookups. '''
 
+    def _documents (self) :
+        return {index.document for index in self.session.access.all_indexes()}
+
     def __contains__ (self, document) :
         return len(document) and len(self.session.access.indexes(document))
+
+    def __iter__ (self) :
+        return iter(self._documents())
+
+    def __len__ (self) :
+        return len(self._documents())
 
     def update (self, document) :
         ''' This updates the indexes for a document. '''
@@ -80,6 +89,10 @@ class Indexed (SessionDependent) :
 
     def remove (self, document) :
         RemoveIndexes(self.session, document)()
+
+    def clear (self) :
+        for document in self._documents() :
+            self.remove(document)
 
 def __test__ (ut) :
     from nlplib.core.model import Document, Database
@@ -118,9 +131,12 @@ def __test__ (ut) :
         ut.assert_true(second_document in indexed)
         ut.assert_true(third_document not in indexed)
 
+        ut.assert_equal(len(indexed), 2)
+        ut.assert_equal(set(indexed), {first_document, second_document})
+
     with db as session :
         ut.assert_equal(max(len(tuple(gram)) for gram in session.access.all_grams()), max_gram_length)
-        ut.assert_equal(len(session.access.all_indexes()), 210)
+        ut.assert_equal(len(list(session.access.all_indexes())), 210)
 
         interject_documents = Concordance(session.access.word('interject')).documents()
         ut.assert_equal(len(interject_documents), 1)
@@ -165,9 +181,9 @@ def __test__ (ut) :
         Indexed(session).remove(second_document)
 
     with db as session :
-        ut.assert_equal(len(session.access.all_seqs()), 0)
-        ut.assert_equal(len(session.access.all_indexes()), 0)
-        ut.assert_equal(len(session.access.all_documents()), 2)
+        ut.assert_equal(len(list(session.access.all_seqs())), 0)
+        ut.assert_equal(len(list(session.access.all_indexes())), 0)
+        ut.assert_equal(len(list(session.access.all_documents())), 2)
 
         second_document, third_document = sorted_all_documents(session)
 

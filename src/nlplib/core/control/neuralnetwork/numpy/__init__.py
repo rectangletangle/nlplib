@@ -61,7 +61,7 @@ class NumpyNeuralNetwork (Base) :
             link.affinity = self.connections[intralayer_index][node_index, link_index]
 
 def __test__ (ut) :
-    from nlplib.core.control.neuralnetwork.layered import MakeMultilayerPerceptron, static_io, static
+    from nlplib.core.control.neuralnetwork.layered import MakeMultilayerPerceptron, StaticIO, Static
     from nlplib.core.control.score import Scored
     from nlplib.core.model import Database, NeuralNetwork, Word
 
@@ -74,11 +74,11 @@ def __test__ (ut) :
 
     with db as session :
 
-        config = (static_io(session.access.words(' '.join(str(i) for i in range(5)))),
-                  static(10),
-                  static(4),
-                  static(17),
-                  static_io(session.access.words(' '.join(str(i) for i in range(5, 8)))))
+        config = (StaticIO(session.access.words(' '.join(str(i) for i in range(5)))),
+                  Static(10),
+                  Static(4),
+                  Static(17),
+                  StaticIO(session.access.words(' '.join(str(i) for i in range(5, 8)))))
 
         MakeMultilayerPerceptron(session.access.neural_network('foo'), *config)()
 

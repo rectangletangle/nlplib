@@ -31,14 +31,20 @@ class Document (Model) :
     def __len__ (self) :
         return self.length
 
+    def __associated__ (self, session) :
+        for index, seq in session.access.indexes(self) :
+            seq.indexes.remove(index)
+            if seq.count < 1 :
+                yield seq
+            yield index
+
 @total_ordering
 class Seq (Model) :
     ''' This acts as a sequence of characters, similar to a string. The word and gram classes are built on top of
         this. '''
 
-    def __init__ (self, string, count=None) :
+    def __init__ (self, string) :
         self.string = string
-        self.count  = count
 
         self.indexes = []
 
@@ -81,6 +87,10 @@ class Seq (Model) :
 
     def __hash__ (self) :
         return hash((self.__class__, self.string))
+
+    @composite(lambda self : tuple(self.indexes))
+    def count (self) :
+        return len(self.indexes)
 
 class Gram (Seq) :
     ''' This class is used for representing n-grams of word strings. '''

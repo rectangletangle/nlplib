@@ -43,7 +43,10 @@ class FeedForward (Base) :
         return sum(input_node.charge * link.affinity for input_node, link in node.inputs.items())
 
 class Backpropagate (Base) :
-    ''' This is an implementation of the backpropagation algorithm, a supervised neural network training algorithm. '''
+    ''' This is an implementation of the backpropagation algorithm, a supervised neural network training algorithm.
+
+        Note : Because this algorithm depends on dictionary iteration order in several places, it should be considered
+        nondeterministic. '''
 
     def __init__ (self, neural_network, active_input_nodes, correct_output_nodes, rate=0.2,
                   activation_derivative=math.dtanh) :
@@ -145,112 +148,76 @@ class Train (SessionDependent) :
                    self.session.access.output_nodes_for_seqs(self.neural_network, output_seqs))
 
 def __test__ (ut) :
-    from nlplib.core.control.neuralnetwork.layered import MakeMultilayerPerceptron, static_io, static, random_affinity
-    from nlplib.core.control.score import Scored
-    from nlplib.core.model import Database, NeuralNetwork, Word
+    from collections import OrderedDict
 
-    # todo : not deterministic, probably set order doing it
+    from nlplib.core.control.neuralnetwork.layered import MakeMultilayerPerceptron, StaticIO, Static
+    from nlplib.core.model import Database, NeuralNetwork, Word
 
     db = Database()
 
     with db as session :
-        session.add(NeuralNetwork('foo'))
+        nn = session.add(NeuralNetwork('foo'))
+
         for char in 'abcdef' :
             session.add(Word(char))
 
-    with db as session :
+        def affinity () :
+            # This is used in place of random affinities, in order to maintain determinism.
 
-        config = (static_io(session.access.words('a b c')),)
-        config += tuple(static(10) for _ in range(1))
-        config += (static_io(session.access.words('d e f')),)
-
-        def foo (*args) :
             while True :
                 for i in range(10) :
                     u = i / 10
                     yield u if i % 2 == 0 else u * -1
 
-        MakeMultilayerPerceptron(session.access.neural_network('foo'), *config, affinity=foo)()
+        MakeMultilayerPerceptron(nn,
+                                 StaticIO(session.access.words('a b c')),
+                                 Static(10),
+                                 StaticIO(session.access.words('d e f')),
+                                 affinity=affinity)()
 
     with db as session :
         nn = session.access.neural_network('foo')
 
+        def deterministic_dict (dict_) :
+            # Because dictionary iteration order is undefined behavior, and in some Python implementations not even
+            # deterministic, we introduce deterministic iteration order to the algorithm using the ordered dictionary
+            # type.
+
+            return OrderedDict(sorted(dict_.items(), key=lambda item : item[1].affinity))
+
+        for node in session.access.nodes(nn) :
+            node.inputs  = deterministic_dict(node.inputs)
+            node.outputs = deterministic_dict(node.outputs)
+
         a, b, c, d, e, f = session.access.words('a b c d e f')
 
-        patterns = [((a, b), (f,)),
-                    ((a, c), (f,)),
-                    ((b,),   (d,)),
-                    ((c,),   (e,))]
+        training_patterns = [( (a, b), (f,) ),
+                             ( (a, c), (f,) ),
+                             ( (b,),   (d,) ),
+                             ( (c,),   (e,) )]
 
-        correct_errors = [0.992051, 0.991895, 0.929592, 2.853537, 0.989829, 0.988991, 0.911346, 2.801319, 0.985935,
-                          0.983401, 0.881609, 2.704446, 0.977543, 0.969563, 0.825323, 2.485274, 0.950553, 0.913019,
-                          0.682092, 1.80601, 0.767657, 0.48561, 0.296976, 0.382413, 0.463988, 0.493707, 0.26755,
-                          0.151701, 0.436848, 0.361061, 0.2944, 0.145551, 0.411768, 0.244382, 0.305417, 0.159377,
-                          0.388434, 0.174774, 0.27522, 0.161916, 0.371833, 0.137788, 0.234883, 0.157282, 0.359215,
-                          0.114118, 0.201198, 0.148665, 0.346272, 0.097993, 0.176928, 0.137895, 0.330956, 0.087816,
-                          0.161396, 0.126661, 0.312308, 0.082303, 0.152689, 0.116299, 0.290045, 0.080179, 0.14864,
-                          0.107533, 0.264584, 0.080117, 0.147227, 0.100513, 0.237145, 0.080721, 0.146654, 0.095013,
-                          0.209627, 0.080719, 0.145447, 0.090641, 0.18408, 0.079332, 0.142691, 0.086964]
+        avg_error = math.avg(round(error, 6) for error, *nodes in Train(session, nn, training_patterns, 20, 0.2))
 
-        [round(error, 6) for error, *nodes in Train(session, nn, patterns, 20, 0.2)]
+        ut.assert_equal(avg_error, 0.4993055999999999)
 
-        ins_and_outs = [( (a,),   [('f', 0.893482), ('d', -0.085247), ('e', -0.22805)] ),
-                        ( (b,),   [('d', 0.628165), ('e', 0.106708), ('f', -0.063184)] ),
-                        ( (c,),   [('e', 0.708942), ('d', 0.090739), ('f', 0.046273)]  ),
-                        ( (a, b), [('f', 0.875242), ('d', 0.358109), ('e', -0.304012)] ),
-                        ( (a, c), [('f', 0.837407), ('e', 0.09891), ('d', -0.137624)]  )]
-                        #( (b, c), [('e', 0.698783), ('d', 0.673296), ('f', 0.10256)]   )]
+        # We never directly trained it for the input combination (b, c); however, it throws out a reasonable guess by
+        # giving e and d a similar score, and giving f a low score.
+        ins = [(a,), (b,), (c,), (a, b), (a, c), (b, c)]
 
-        for in_, out in ins_and_outs :
-            strs_and_scores  = [(str(word), round(score, 6)) for word, score in Prediction(session, nn, in_)]
-            sorted_by_scores = sorted(strs_and_scores, key=lambda both : both[1] * -1)
+        outs = [[ ('f', 0.927115), ('d', 0.082929), ('e', -0.580871) ],
+                [ ('d', 0.640232), ('e', 0.179109), ('f', 0.068058)  ],
+                [ ('e', 0.691237), ('d', 0.043618), ('f', -0.042884) ],
+                [ ('f', 0.854911), ('d', 0.463793), ('e', -0.296235) ],
+                [ ('f', 0.85542),  ('d', 0.06778),  ('e', 0.011365)  ],
+                [ ('e', 0.669032), ('d', 0.640655), ('f', -0.079214) ]]
 
-            ut.assert_equal(sorted_by_scores[0][0], out[0][0])
+        for in_, out in zip(ins, outs) :
+            strs_and_scores = [(str(word), round(score, 6)) for word, score in Prediction(session, nn, in_)]
 
-def __profile__ () :
-    from nlplib.core.control.neuralnetwork.layered import MakeMultilayerPerceptron, static_io, static
-    from nlplib.core.control.score import Scored
-    from nlplib.core.model import Database, NeuralNetwork, Word
-
-    db = Database()
-
-    with db as session :
-        session.add(NeuralNetwork('foo'))
-        for char in range(10) :
-            session.add(Word(str(char)))
-
-    with db as session :
-
-        config = (static_io(session.access.words(' '.join(str(i) for i in range(5)))),)
-        config += tuple(static(10) for _ in range(1))
-        config += tuple(static(4) for _ in range(1))
-        config += (static_io(session.access.words(' '.join(str(i) for i in range(5, 10)))),)
-
-        MakeMultilayerPerceptron(session.access.neural_network('foo'), config)()
-
-    from nlplib.general.time import timing
-    @timing
-    @db.session
-    def t (session) :
-        pass
-
-
-##        nn = session.access.neural_network('foo')
-##
-##        a, b, c, d, e, f = session.access.words('a b c d e f')
-##
-##        patterns = [((a, b), (f,)),
-##                    ((a, c), (f,)),
-##                    ((b,),   (d,)),
-##                    ((c,),   (e,))]
-##
-##        for error in Train(session, nn, patterns, 1, 0.5) :
-##            pass
-
-    t()
+            ut.assert_equal(sorted(strs_and_scores, key=lambda both : both[1], reverse=True),
+                            out)
 
 if __name__ == '__main__' :
     from nlplib.general.unittest import UnitTest
     __test__(UnitTest())
-    #__profile__()
 

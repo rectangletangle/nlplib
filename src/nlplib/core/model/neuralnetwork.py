@@ -40,6 +40,9 @@ class NeuralNetwork (Model) :
     def __reversed__ (self) :
         return self._iter_nodes(self.outputs, lambda output_node : output_node.inputs)
 
+    def __associated__ (self) :
+        return self.elements
+
     def hidden (self, reverse=False) :
         layers = self if not reverse else reversed(self)
         return truncate(itertools.islice(layers, 1, None), 1)
@@ -48,18 +51,8 @@ class NeuralNetwork (Model) :
         layers = self if not reverse else reversed(self)
         return paired(layers)
 
-class Perceptron (NeuralNetwork) :
-    # todo : rename layered
-    # todo : req?
-    @composite(lambda self : (tuple(self.elements), tuple(self.inputs)))
-    def layers (self) :
-        return list(super().__iter__())
-
-    def __iter__ (self) :
-        return iter(self.layers)
-
-    def __reversed__ (self) :
-        return reversed(self.layers)
+class MLPNeuralNetwork (NeuralNetwork) :
+    pass
 
 class NeuralNetworkElement (Model) :
     def __init__ (self, neural_network) :
@@ -93,6 +86,10 @@ class Node (NeuralNetworkElement) :
 
     def __repr__ (self, *arg, **kw) :
         return super().__repr__(pretty_float(self.charge), *arg, **kw)
+
+    def __associated__ (self) :
+        yield from self.inputs.values()
+        yield from self.outputs.values()
 
 class IONode (Node) :
     ''' A class for input and output neural network nodes. These are the nodes on the edge of a neural network, which

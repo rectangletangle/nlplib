@@ -39,7 +39,7 @@ class Session (abstract.Session) :
         else :
             return objects
 
-    def remove (self, object) :
+    def _remove (self, object) :
         self._sqlalchemy_session.delete(object)
 
 class Database (abstract.Database) :

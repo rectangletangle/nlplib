@@ -1,7 +1,7 @@
 
 
 from nlplib.core.process.token import split
-from nlplib.core.model import SessionDependent, Document, Seq, Gram, Word, Index, NeuralNetwork, IONode
+from nlplib.core.model import SessionDependent, Document, Seq, Gram, Word, Index, NeuralNetwork, IONode, Node, Link
 
 __all__ = ['Access', 'abstract_test']
 
@@ -23,6 +23,7 @@ class Access (SessionDependent) :
         return self.all_words()
 
     def corpus (self) :
+        # todo : remove if corpus model is added
         return self.all_documents()
 
     def _all (self, cls, chunk_size=100) :
@@ -51,6 +52,15 @@ class Access (SessionDependent) :
 
     def all_neural_networks (self, *args, **kw) :
         return self._all(NeuralNetwork, *args, **kw)
+
+    def all_nodes (self, *args, **kw) :
+        return self._all(Node, *args, **kw)
+
+    def all_io_nodes (self, *args, **kw) :
+        return self._all(IONode, *args, **kw)
+
+    def all_links (self, *args, **kw) :
+        return self._all(Link, *args, **kw)
 
     def _seq (self, cls, string) :
         raise NotImplementedError

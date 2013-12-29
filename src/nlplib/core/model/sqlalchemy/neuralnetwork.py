@@ -6,7 +6,7 @@ from sqlalchemy.sql import and_, not_
 from sqlalchemy import Column, Boolean, Integer, Float, String, ForeignKey
 
 from nlplib.core.model.sqlalchemy.base import ClassMapper
-from nlplib.core.model.neuralnetwork import NeuralNetwork, Perceptron, NeuralNetworkElement, Link, Node, IONode
+from nlplib.core.model.neuralnetwork import NeuralNetwork, MLPNeuralNetwork, NeuralNetworkElement, Link, Node, IONode
 
 class NeuralNetworkMapper (ClassMapper) :
     cls  = NeuralNetwork
@@ -15,7 +15,7 @@ class NeuralNetworkMapper (ClassMapper) :
     def columns (self) :
         return (Column('id', Integer, primary_key=True),
                 Column('type', String),
-                Column('name', String, unique=True, nullable=False, index=True))
+                Column('name', String, unique=True, index=True))
 
     def mapper_kw (self) :
         io_node_class = self.classes['io_node']
@@ -38,15 +38,21 @@ class NeuralNetworkMapper (ClassMapper) :
                 'polymorphic_identity' : self.name,
                 'polymorphic_on' : self.table.c.type}
 
-class PerceptronMapper (ClassMapper) :
-    cls  = Perceptron
-    name = 'perceptron'
+class MLPNeuralNetworkMapper (ClassMapper) :
+    cls  = MLPNeuralNetwork
+    name = 'mlp_neural_network'
 
     def columns (self) :
-        return (Column('id', Integer, ForeignKey('neural_network.id'), primary_key=True),)
+        return (Column('id', Integer, ForeignKey('neural_network.id'), primary_key=True),
+                Column('hidden_config', String, nullable=False),
+                Column('affinities', String, nullable=False),
+                Column('charges', String))
 
     def mapper_kw (self) :
-        return {'properties' : {'_id' : column_property(self.table.c.id, self.tables['neural_network'].c.id)},
+        return {'properties' : {'_id' : column_property(self.table.c.id, self.tables['neural_network'].c.id),
+                                '_hidden_config' : self.table.c.hidden_config,
+                                '_affinities'    : self.table.c.affinities,
+                                '_charges'       : self.table.c.charges},
                 'inherits' : self.classes['neural_network'],
                 'polymorphic_identity' : self.name}
 

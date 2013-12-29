@@ -63,6 +63,9 @@ class Score (Base) :
         yield self.object
         yield self.score
 
+    def __getitem__ (self, index) :
+        return (self.object, self.score)[index]
+
     def __lt__ (self, other) :
         try :
             return self.score < float(other)
@@ -202,5 +205,5 @@ def __test__ (ut) :
 
 if __name__ == '__main__' :
     from nlplib.general.unittest import UnitTest
-    __test__(UnitTest(True))
+    __test__(UnitTest())
 

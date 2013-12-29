@@ -29,9 +29,9 @@ class MakeAutocompleteNeuralNetwork (SessionDependent) :
         words = list(self.session.access.most_common(top=self.top)) + [None]
 
         layered.MakeMultilayerPerceptron(neural_network,
-                                         layered.static_io(words),
-                                         layered.static(len(words)),
-                                         layered.static_io(words))()
+                                         layered.StaticIO(words),
+                                         layered.Static(len(words)),
+                                         layered.StaticIO(words))()
 
         return neural_network
 
@@ -47,11 +47,11 @@ def __demo__ (ut) :
     from nlplib.core.model import Database, Word, Document, Gram
 
     from nlplib.exterior.train import usable
-    from nlplib.exterior.util import plot_errors
+    from nlplib.exterior.util import plot
 
     db = Database()
 
-    top = 40
+    top = 2
 
     with builtin_db() as builtin_session :
         pprint([gram for gram in builtin_session.access.most_common(Gram, 50)], width=20)
@@ -72,7 +72,7 @@ def __demo__ (ut) :
 
         patterns = usable(seqs_known_to_neural_network(nn), list(session.access.all_documents()), gram_size=2)
 
-        plot_errors(Train(session, nn, patterns, 6, rate=0.001), 100)
+        plot(Train(session, nn, patterns, 1, rate=0.01), lambda item : item[0],  100)
 
     def ask (string) :
         with db as session :

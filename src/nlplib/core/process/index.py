@@ -3,27 +3,12 @@
 from nlplib.core.process.parse import Parsed
 from nlplib.core.model import SessionDependent
 
-__all__ = ['AddIndexes', 'RemoveIndexes', 'Indexed']
+__all__ = ['Indexed']
 
-class _EditIndexes (SessionDependent) :
-    ''' A base class for classes which edit a document's indexes. '''
-
-    def __init__ (self, session, document) :
-        super().__init__(session)
-
-        self.document = document
-
-    def __call__ (self) :
-        ''' This modifies the indexes for the document (add, remove, update). '''
-
-        raise NotImplementedError
-
-class AddIndexes (_EditIndexes) :
-    ''' This will add an index for each word and gram in a document. Words and grams already in the database will have
-        their count incremented accordingly. '''
-
+class _AddIndexes (SessionDependent) :
     def __init__ (self, session, document, parsed) :
-        super().__init__(session, document)
+        super().__init__(session)
+        self.document = document
         self.parsed = parsed
 
     def __call__ (self) :
@@ -52,16 +37,6 @@ class AddIndexes (_EditIndexes) :
 
             yield seq
 
-class RemoveIndexes (_EditIndexes) :
-    ''' This removes the indexes for a document; this undoes <AddIndexes>. '''
-
-    def __call__ (self) :
-        for index, seq in self.session.access.indexes(self.document) :
-            seq.count -= 1
-            if seq.count < 1 :
-                self.session.remove(seq)
-            self.session.remove(index)
-
 class Indexed (SessionDependent) :
     ''' This is used to construct a textual index of documents within the database. This allows for rapid word and
         n-gram (groups of words) lookups. '''
@@ -84,18 +59,32 @@ class Indexed (SessionDependent) :
         self.remove(document)
         self.add(document)
 
-    def add (self, document, *args, max_gram_length=5, **kw) :
-        AddIndexes(self.session, document, Parsed(document, *args, max_gram_length=max_gram_length, **kw))()
+    def add (self, document, *args, max_gram_length=5, parser=Parsed, **kw) :
+        ''' This will add an index for each word and gram in a document. Words and grams already in the database will
+            have their count attribute incremented accordingly.
+
+            Note : This does not add the document and its associated objects, i.e., indexes, grams, words, sequences,
+            to the database. To add both the document and its associated objects call <session.add(document)>. '''
+
+        _AddIndexes(self.session, document, parser(document, *args, max_gram_length=max_gram_length, **kw))()
+
+        return document
 
     def remove (self, document) :
-        RemoveIndexes(self.session, document)()
+        ''' This removes the indexes for a document from the database; this undoes <Indexed.add>.
+
+            Note : This does not remove the document from the database. To remove both the document and its indexes
+            simply call <session.remove(document)>. '''
+
+        for object in document.__associated__(self.session) :
+            self.session.remove(object)
 
     def clear (self) :
         for document in self._documents() :
             self.remove(document)
 
 def __test__ (ut) :
-    from nlplib.core.model import Document, Database
+    from nlplib.core.model import Document, Database, Word
     from nlplib.core.process.concordance import Concordance
     from nlplib.core.process.token import re_tokenize
 
@@ -189,6 +178,18 @@ def __test__ (ut) :
 
         ut.assert_true(second_document not in indexed)
         ut.assert_true(third_document not in indexed)
+
+    db = Database()
+
+    with db as session :
+        session.add(Word('a', count=1))
+
+    with db as session :
+        Indexed(session).add(Document('a a'))
+        print(list(session.access.all_words())[0].count)
+
+    with db as session :
+        print(list(session.access.all_words())[0].count)
 
 if __name__ == '__main__' :
     from nlplib.general.unittest import UnitTest

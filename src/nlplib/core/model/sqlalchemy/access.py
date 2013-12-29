@@ -2,7 +2,7 @@
 from sqlalchemy.sql import or_
 
 from nlplib.core.model.abstract import access as abstract
-from nlplib.core.model import Document, Seq, Gram, Word, Index, NeuralNetwork, IONode, Link
+from nlplib.core.model import Document, Seq, Gram, Word, Index, NeuralNetwork, Node, IONode, Link
 from nlplib.general.iterate import chunked
 
 __all__ = ['Access']
@@ -53,6 +53,9 @@ class Access (abstract.Access) :
                                         *input_filter).all()
         else :
             return []
+
+    def nodes (self, neural_network) :
+        return self.session._sqlalchemy_session.query(Node).filter_by(neural_network=neural_network).all()
 
     def link (self, neural_network, input_node, output_node) :
         return self.session._sqlalchemy_session.query(Link).filter_by(neural_network=neural_network,

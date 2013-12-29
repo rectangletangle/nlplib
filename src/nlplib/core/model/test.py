@@ -1,9 +1,44 @@
 ''' This tests the models. '''
 
-from nlplib.core.control.neuralnetwork.layered import static_io, MakeMultilayerPerceptron
-from nlplib.core.model import Database, Word, NeuralNetwork, Perceptron, Link, Node, IONode, Seq
+from nlplib.core.process.index import Indexed
+from nlplib.core.model import Database, Document, Word, NeuralNetwork, Link, Node, IONode, Seq
 
-def _test_neural_network_model (ut) :
+def _test_document (ut) :
+    # Tests the addition and removal of documents and associated objects from the database.
+
+    db = Database()
+
+    with db as session :
+        indexed = Indexed(session)
+        indexed.add(session.add(Document('a b b a c d')), max_gram_length=1)
+        indexed.add(session.add(Document('a c d e')), max_gram_length=2)
+
+        session.add(Document('a c')) # This document isn't indexed, so no associated objects.
+
+    def test_counts (session, seq, index) :
+        ut.assert_equal(len(list(session.access.all_seqs())), seq)
+        ut.assert_equal(len(list(session.access.all_indexes())), index)
+
+    def longest (session) :
+        return max(session.access.all_documents(), key=lambda document : len(str(document)))
+
+    with db as session :
+        ut.assert_equal(len(list(session.access.all_documents())), 3)
+
+        test_counts(session, 8, 13)
+        session.remove(longest(session))
+        test_counts(session, 7, 7)
+        session.remove(longest(session))
+        test_counts(session, 0, 0)
+        session.remove(longest(session))
+        test_counts(session, 0, 0)
+
+        ut.assert_equal(len(list(session.access.all_documents())), 0)
+
+    with db as session :
+        test_counts(session, 0, 0)
+
+def _test_neural_network_structure (ut) :
 
     db = Database()
 
@@ -69,9 +104,47 @@ def _test_neural_network_links (ut) :
         ut.assert_equal(io_node.outputs, {node : link})
         ut.assert_equal(node.inputs, {io_node : link})
 
+def _test_neural_network (ut) :
+    # Tests the addition and removal of neural networks and associated objects from the database.
+
+    db = Database()
+
+    with db as session :
+        for name in ['a', 'b'] :
+            nn = session.add(NeuralNetwork(name))
+            Link(nn, IONode(nn, None, True), Node(nn, None))
+
+    def test_counts (session, io, node, link) :
+        ut.assert_equal(len(list(session.access.all_io_nodes())), io)
+        ut.assert_equal(len(list(session.access.all_nodes())), node)
+        ut.assert_equal(len(list(session.access.all_links())), link)
+
+    with db as session :
+        test_counts(session, 2, 4, 2)
+
+        session.remove(session.access.nn('a'))
+
+    with db as session :
+        test_counts(session, 1, 2, 1)
+
+        all_neural_networks = list(session.access.all_neural_networks())
+
+        ut.assert_equal(len(all_neural_networks), 1)
+        ut.assert_equal(all_neural_networks[0].name, 'b')
+
+        session.remove(session.access.nn('b'))
+
+        test_counts(session, 0, 0, 0)
+
+    with db as session :
+        test_counts(session, 0, 0, 0)
+
 def __test__ (ut) :
-    _test_neural_network_model(ut)
+    _test_document(ut)
+
+    _test_neural_network_structure(ut)
     _test_neural_network_links(ut)
+    _test_neural_network(ut)
 
 if __name__ == '__main__' :
     from nlplib.general.unittest import UnitTest

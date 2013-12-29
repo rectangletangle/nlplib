@@ -20,8 +20,20 @@ class Session (Base) :
     def add_many (self, objects) :
         return [self.add(object) for object in objects]
 
-    def remove (self, object) :
+    def _remove (self, object) :
         raise NotImplementedError
+
+    def remove (self, object) :
+        if hasattr(object, '__associated__') :
+            try :
+                associated_objects = object.__associated__(self)
+            except TypeError :
+                associated_objects = object.__associated__()
+
+            for associated_object in associated_objects :
+                self._remove(associated_object)
+
+        self._remove(object)
 
 class Database (Base) :
     ''' This class represents a database. Generally you don't interface with the database directly too much, but

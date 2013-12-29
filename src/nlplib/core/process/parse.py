@@ -87,12 +87,12 @@ class Parsed (Base) :
 
     def _gram (self, gram_tuple) :
         if self.yield_grams :
-            return Gram(gram_tuple, count=0)
+            return Gram(gram_tuple)
         else :
             raise DontParse
 
     def _word (self, word_string) :
-        return Word(word_string, count=0)
+        return Word(word_string)
 
     def _seq (self, strings) :
         return self._word(strings[0]) if len(strings) == 1 else self._gram(strings)
@@ -106,7 +106,6 @@ class Parsed (Base) :
                       first_token.first_character_index,
                       last_token.last_character_index)
 
-        seq.count += 1
         seq.indexes.append(index)
 
 def __test__ (ut) :

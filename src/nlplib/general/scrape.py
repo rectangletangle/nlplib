@@ -40,8 +40,10 @@ class Response (Base) :
 class Scraped (Base) :
     ''' A base web scraper class. '''
 
+    # todo : unify serial chunk_size and max_workers
+
     def __init__ (self, urls, revisit=True, silent=False, chunk_size=20, max_workers=None, user_agent='nlplib',
-                  serialize=False) :
+                  serial=False, encoding='utf-8') :
 
         self.urls = urls
         self.revisit = revisit
@@ -49,7 +51,8 @@ class Scraped (Base) :
         self.chunk_size = chunk_size
         self.max_workers = max_workers
         self.user_agent = user_agent
-        self.serialize = serialize
+        self.serial = serial
+        self.encoding = encoding
 
         self._visited_urls = set()
 
@@ -64,7 +67,7 @@ class Scraped (Base) :
             scraping_functions = (lambda url=url : responses.append(self._scrape(opener, url))
                                   for url in urls)
 
-            if not self.serialize :
+            if not self.serial :
                 simultaneously(scraping_functions, max_workers=self.max_workers)
             else :
                 for function in scraping_functions :
@@ -82,7 +85,7 @@ class Scraped (Base) :
     def _scrape (self, opener, request_url) :
         try :
             with opener.open(request_url) as page :
-                response = Response(url=page.geturl(), text=page.read(), request_url=request_url)
+                response = Response(url=page.geturl(), text=page.read().decode(self.encoding), request_url=request_url)
                 return self._could_open_url(response)
         except URLError as exc :
             return self.could_not_open_url(exc, request_url)
@@ -117,10 +120,13 @@ def scraper (*args, cls=Scraped, **kw) :
 def __test__ (ut) :
     from nlplib.general.unittest import mock
 
-    urls = {'a' : mock(geturl=lambda : 'a', read=lambda : 'aaa'),
-            'b' : mock(geturl=lambda : 'b', read=lambda : 'bbb'),
-            'c' : mock(geturl=lambda : 'c', read=lambda : 'ccc'),
-            'd' : mock(geturl=lambda : 'd', read=lambda : 'ddd')}
+    urls = {'a' : mock(geturl=lambda : 'a', read=lambda : b'aaa'),
+            'b' : mock(geturl=lambda : 'b', read=lambda : b'bbb'),
+            'c' : mock(geturl=lambda : 'c', read=lambda : b'ccc'),
+            'd' : mock(geturl=lambda : 'd', read=lambda : b'ddd'),
+
+            b'\xc3\x9c'.decode() : mock(geturl=lambda : b'\xc3\x9c'.decode(),
+                                        read=lambda : b'\xc3\x9c\xc3\x9c\xc3\x9c')}
 
     def mocked (cls) :
         # A mockup is made, so that the test doesn't depend on external resources (the internet).
@@ -164,6 +170,10 @@ def __test__ (ut) :
 
     scraped = mocked(Scraped)(['a', 'a', 'a'], revisit=False)
     ut.assert_equal(list(scraped), [Response('a', 'aaa', 'a')])
+
+    scraped = mocked(Scraped)([b'\xc3\x9c'.decode()], encoding='utf-8')
+    # The response text should be three uppercase Us with umlauts.
+    ut.assert_equal(list(scraped)[0].text, b'\xc3\x9c\xc3\x9c\xc3\x9c'.decode())
 
     # The scraper class should be able to handle infinite generators; if not, this test will take forever!
     @scraper(cls=mocked(Scraped), revisit=True)

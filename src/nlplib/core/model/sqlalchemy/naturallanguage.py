@@ -37,7 +37,6 @@ class SeqMapper (ClassMapper) :
         return (Column('id', Integer, primary_key=True),
                 Column('type', String),
                 Column('string', String, nullable=False),
-                Column('count', Integer),
                 UniqueConstraint('type', 'string'))
 
     def mapper_kw (self) :

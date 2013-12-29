@@ -1,5 +1,7 @@
 
+
 from sqlalchemy.sql import or_
+from sqlalchemy import func
 
 from nlplib.core.model.abstract import access as abstract
 from nlplib.core.model import Document, Seq, Gram, Word, Index, NeuralNetwork, Node, IONode, Link
@@ -18,7 +20,11 @@ class Access (abstract.Access) :
         return self.session._sqlalchemy_session.query(cls).get(id)
 
     def most_common (self, cls=Seq, top=10) :
-        return self.session._sqlalchemy_session.query(cls).order_by(cls.count.desc()).slice(0, top).all()
+
+        session = self.session._sqlalchemy_session
+        query = session.query(cls).join(Index).group_by(cls).order_by(func.count(Index._seq_id).desc())
+
+        return query.slice(0, top).all()
 
     def indexes (self, document) :
         return self.session._sqlalchemy_session.query(Index, Seq).filter(Index.document == document).join(Seq).all()

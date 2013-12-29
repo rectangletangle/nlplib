@@ -145,25 +145,29 @@ def weighted (function, *args, **kw) :
     return WeightedFunction(function, *args, **kw)
 
 def __test__ (ut) :
-    from nlplib.core.control.score.metric import levenshtein_distance, count
+    from nlplib.core.control.score import metric
     from nlplib.core.model import Word
 
     word = Word('the')
 
-    words = [Word('their', count=100),
-             Word('platypus', count=60),
-             Word('there', count=10),
-             Word('them', count=4),
-             Word('th', count=2),
-             Word('they', count=1),
-             Word('though', count=1)]
+    words = [Word('their'),
+             Word('platypus'),
+             Word('there'),
+             Word('them'),
+             Word('th'),
+             Word('they'),
+             Word('though')]
+
+    Word.count, prop = (None, Word.count)
+    for count, words_word in zip([100, 60, 10, 4, 2, 1, 1], words) :
+        words_word.count = count
 
     def test (count_weight, levenshtein_distance_weight) :
 
-        weighted_count = weighted(lambda object, similar : count(similar),
+        weighted_count = weighted(lambda object, similar : metric.count(similar),
                                   weight=count_weight)
 
-        weighted_levenshtein_distance = weighted(levenshtein_distance,
+        weighted_levenshtein_distance = weighted(metric.levenshtein_distance,
                                                  weight=levenshtein_distance_weight,
                                                  low_is_better=True)
 
@@ -181,7 +185,7 @@ def __test__ (ut) :
     # Tests behavior when things are missing.
     ut.assert_equal(list(ScoredAgainst(word, [], [])), [])
     ut.assert_equal(list(ScoredAgainst(word, [],
-                    [weighted(levenshtein_distance, weight=2.0, low_is_better=True)])), [])
+                    [weighted(metric.levenshtein_distance, weight=2.0, low_is_better=True)])), [])
 
     # Without scoring functions, this essentially just sorts the word objects alphabetically.
     ut.assert_equal(list(ScoredAgainst(word, words, []).ranked()), sorted(words))
@@ -202,6 +206,8 @@ def __test__ (ut) :
     ut.assert_equal(list(ranked),
                     [Word('th'), Word('them'), Word('they'), Word('their'), Word('there'), Word('though'),
                      Word('platypus')])
+
+    Word.count = prop
 
 if __name__ == '__main__' :
     from nlplib.general.unittest import UnitTest

@@ -16,8 +16,11 @@ class RandomlyScrapedFromWikipedia (Scraped) :
     url = 'https://en.wikipedia.org/wiki/Special:Random'
 
     def __init__ (self, amount=1, silent=True, *args, **kw) :
+
         counter = count() if amount in {'inf', float('inf'), -1} else range(amount)
+
         urls = (self.url for _ in counter)
+
         super().__init__(urls, silent=silent, *args, **kw)
 
 def _flatten (iterable) :
@@ -30,10 +33,10 @@ def _flatten (iterable) :
 def _make_document_from_response (response) :
     soup = parse_html(response.text)
 
-    raw = ''.join(_flatten(tag.find_all(text=True, recursive=True) for tag in soup.find_all('p')))
+    string = ''.join(_flatten(tag.find_all(text=True, recursive=True) for tag in soup.find_all('p')))
 
-    return Document(raw,
-                    word_count=len(list(split(raw))),
+    return Document(string,
+                    word_count=len(list(split(string))),
                     title='wikipedia',
                     url=response.url,
                     created_on=datetime.now())
@@ -43,7 +46,8 @@ def gather_documents (*args, **kw) :
         yield _make_document_from_response(response)
 
 def __demo__ () :
-    print('\n\n'.join(document.url + '\n' + repr(document) for document in gather_documents(4)))
+    for document in gather_documents('inf', chunk_size=1) :
+        print(document.url + '\n' + repr(document), end='\n\n')
 
 if __name__ == '__main__' :
     __demo__()

@@ -32,7 +32,6 @@ class _AddIndexes (SessionDependent) :
                 # The sequence wasn't in the database, so it's added to the database.
                 seq = seq_from_document
             else :
-                seq.count += seq_from_document.count
                 seq.indexes.extend(seq_from_document.indexes)
 
             yield seq
@@ -60,11 +59,7 @@ class Indexed (SessionDependent) :
         self.add(document)
 
     def add (self, document, *args, max_gram_length=5, parser=Parsed, **kw) :
-        ''' This will add an index for each word and gram in a document. Words and grams already in the database will
-            have their count attribute incremented accordingly.
-
-            Note : This does not add the document and its associated objects, i.e., indexes, grams, words, sequences,
-            to the database. To add both the document and its associated objects call <session.add(document)>. '''
+        ''' This will add an index for each word and gram in a document. '''
 
         _AddIndexes(self.session, document, parser(document, *args, max_gram_length=max_gram_length, **kw))()
 
@@ -182,14 +177,20 @@ def __test__ (ut) :
     db = Database()
 
     with db as session :
-        session.add(Word('a', count=1))
+        session.add(Word('a'))
+        ut.assert_equal(list(session.access.all_words())[0].count, 0)
 
     with db as session :
-        Indexed(session).add(Document('a a'))
-        print(list(session.access.all_words())[0].count)
+        Indexed(session).add(Document('a a b a'))
+        ut.assert_equal(list(session.access.all_words())[0].count, 3)
 
     with db as session :
-        print(list(session.access.all_words())[0].count)
+        ut.assert_equal(list(session.access.all_words())[0].count, 3)
+        session.remove(list(session.access.all_documents())[0])
+        ut.assert_equal(list(session.access.all_words()), [])
+
+    with db as session :
+        ut.assert_equal(list(session.access.all_words()), [])
 
 if __name__ == '__main__' :
     from nlplib.general.unittest import UnitTest

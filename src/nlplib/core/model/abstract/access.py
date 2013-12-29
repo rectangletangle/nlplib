@@ -125,16 +125,18 @@ class Access (SessionDependent) :
 
 def abstract_test (ut, db_cls) :
 
-    from nlplib.core.model import Seq, Gram, Word
+    from nlplib.core.model import Seq, Gram, Word, Document
 
     chars = 'abc'
 
     db = db_cls()
 
     with db as session :
+        document = session.add(Document('foo'))
         for count, char in enumerate(chars, 1) :
             for cls in (Seq, Gram, Word) :
-                session.add(cls(char, count=count))
+                seq = session.add(cls(char))
+                seq.indexes.extend([Index(document, None, None, None, None) for _ in range(count)])
 
     def mock (classes, chars) :
         return sorted(cls(char) for char in chars for cls in classes)

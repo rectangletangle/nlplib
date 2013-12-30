@@ -3,9 +3,8 @@ nlplib
 
 The Natural language Processing Library is a collection of tools for processing
 natural language using Python 3. It features tools for manipulating and
-extracting information from raw English language text using several different
-machine learning algorithms, and then persisting that information within a
-database.
+extracting information from raw English language text, using multiple machine
+learning and natural language processing algorithms.
 
 ## Status :
 Currently it's under active development, not feature complete, and not anywhere

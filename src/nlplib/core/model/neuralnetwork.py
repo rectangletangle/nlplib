@@ -3,8 +3,9 @@
 import itertools
 
 from nlplib.core.model.base import Model
-from nlplib.general.iterate import truncate, paired
-from nlplib.general import pretty_float, composite
+from nlplib.general.represent import pretty_float
+from nlplib.general.iterate import truncated, paired
+from nlplib.general import composite
 
 # todo : implement __all__ list
 
@@ -45,7 +46,7 @@ class NeuralNetwork (Model) :
 
     def hidden (self, reverse=False) :
         layers = self if not reverse else reversed(self)
-        return truncate(itertools.islice(layers, 1, None), 1)
+        return truncated(itertools.islice(layers, 1, None), 1)
 
     def paired (self, reverse=False) :
         layers = self if not reverse else reversed(self)
@@ -55,6 +56,7 @@ class MLPNeuralNetwork (NeuralNetwork) :
     pass
 
 class NeuralNetworkElement (Model) :
+
     def __init__ (self, neural_network) :
         self.neural_network = neural_network
 

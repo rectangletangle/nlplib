@@ -70,7 +70,7 @@ class Access (abstract.Access) :
 
 def __test__ (ut) :
     from nlplib.core.model.abstract.access import abstract_test
-    from nlplib.core.model.sqlalchemy import Database
+    from nlplib.core.model.sqlalchemy_ import Database
 
     abstract_test(ut, Database)
 

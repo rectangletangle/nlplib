@@ -3,7 +3,8 @@
 from functools import total_ordering
 
 from nlplib.core.model.base import Model
-from nlplib.general import pretty_truncate, literal_representation, composite
+from nlplib.general.represent import pretty_truncate, represented_literally
+from nlplib.general import composite
 
 class Document (Model) :
     ''' A class for textual documents. '''
@@ -50,7 +51,7 @@ class Seq (Model) :
 
     def __repr__ (self, *args, **kw) :
         # Sequence objects can be represented as literal Python.
-        return literal_representation(self, self.string, *args, **kw)
+        return represented_literally(self, self.string, *args, **kw)
 
     def __str__ (self) :
         return self.string

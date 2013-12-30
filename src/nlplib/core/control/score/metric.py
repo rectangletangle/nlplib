@@ -1,12 +1,15 @@
+''' Various scoring metrics. '''
 
 
 __all__ = ['count', 'levenshtein_distance']
 
-def count (seq) :
+def count (seq, default=1) :
+    ''' Score a sequence based on how many times it has been encountered. '''
+
     try :
-        return seq.count
+        return seq.count if not callable(seq.count) else default
     except AttributeError :
-        return 1
+        return default
 
 def levenshtein_distance (seq_0, seq_1) :
     ''' This calculates the Levenshtein distance between two sequences (usually strings). '''
@@ -34,6 +37,12 @@ def levenshtein_distance (seq_0, seq_1) :
     return distances[-1]
 
 def __test__ (ut) :
+    from nlplib.general.unittest import mock
+
+    ut.assert_equal(count('foo'), 1)
+    ut.assert_equal(count('bar', default=-3), -3)
+    ut.assert_equal(count(mock(count=35)), 35)
+
     ut.assert_equal(levenshtein_distance('hello', 'hello'), 0)
     ut.assert_equal(levenshtein_distance('hello', 'helo'), 1)
     ut.assert_equal(levenshtein_distance('hello', 'helo'), 1)

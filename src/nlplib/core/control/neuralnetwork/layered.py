@@ -75,10 +75,6 @@ class MakeMultilayerPerceptron (Base) :
 class _LayerConfiguration (Base) :
     pass
 
-class _NullConfiguration (_LayerConfiguration) :
-    def __iter__ (self) :
-        return iter([])
-
 class Static (_LayerConfiguration) :
     def __init__ (self, size) :
         self.size = size
@@ -151,7 +147,7 @@ def _test_make_mlp (ut) :
     ut.assert_doesnt_raise(lambda : MakeMultilayerPerceptron(None, *[None, None]), NeuralNetworkConfigurationError)
 
 def __test__ (ut) :
-    from nlplib.core.model import Database, MLPNeuralNetwork, Word
+##    from nlplib.core.model import Database, MLPNeuralNetwork, Word
 
     _test_make_mlp(ut)
 

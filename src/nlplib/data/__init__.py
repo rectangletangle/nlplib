@@ -1,3 +1,5 @@
+''' This package contains an SQLite database filled with example data, called the built-in database. See the
+    demonstration, for basic use. '''
 
 
 from os import path
@@ -10,6 +12,8 @@ def _src (file_path, name) :
     return path.join(path.split(file_path)[0], name)
 
 def builtin_db (*args, name='builtin.db', db_cls=Database, **kw) :
+    ''' This returns an instance of the built-in database. '''
+
     return db_cls(r'sqlite:///' + _src(__file__, name), *args, **kw)
 
 def __demo__ () :

@@ -5,7 +5,7 @@ from sqlalchemy.orm import relationship, column_property, backref
 from sqlalchemy.sql import and_, not_
 from sqlalchemy import Column, Boolean, Integer, Float, String, ForeignKey
 
-from nlplib.core.model.sqlalchemy.base import ClassMapper
+from nlplib.core.model.sqlalchemy_.base import ClassMapper
 from nlplib.core.model.neuralnetwork import NeuralNetwork, MLPNeuralNetwork, NeuralNetworkElement, Link, Node, IONode
 
 class NeuralNetworkMapper (ClassMapper) :

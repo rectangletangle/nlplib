@@ -1,4 +1,4 @@
-''' This package contains classes that act as abstract base classes for the various storage back-ends. '''
+''' This package contains classes that act as abstract base classes for the various persistence back-ends. '''
 
 from functools import wraps
 from contextlib import contextmanager
@@ -36,8 +36,8 @@ class Session (Base) :
         self._remove(object)
 
 class Database (Base) :
-    ''' This class represents a database. Generally you don't interface with the database directly too much, but
-        instead with a database session object. '''
+    ''' This class represents a database. Generally you don't interface with the database directly so much, but instead
+        with a database session object. '''
 
     def __init__ (self, path=r'sqlite:///:memory:') :
         self.path = path

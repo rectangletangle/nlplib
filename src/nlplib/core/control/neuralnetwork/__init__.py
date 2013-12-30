@@ -66,7 +66,6 @@ class Backpropagate (Base) :
             correct_value = 1.0 if output_node in self.correct_output_nodes else 0.0
 
             difference = correct_value - output_node.charge
-
             output_node.error = self.activation_derivative(output_node.charge) * difference
 
             yield difference
@@ -86,13 +85,9 @@ class Backpropagate (Base) :
 
     def _propagate_errors (self) :
         output_differences = list(self._output_errors())
-
         self._hidden_errors()
-
         self._update_link_affinities()
-
         total_error = sum(0.5 * difference ** 2 for difference in output_differences)
-
         return total_error
 
 class Prediction (SessionDependent) :

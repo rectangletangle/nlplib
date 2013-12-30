@@ -1,10 +1,10 @@
+''' This sub-package contains modules for dealing with non natural language processing/machine learning specific
+    tasks. '''
 
 
 from functools import wraps
-from itertools import chain
 
-__all__ = ['composite', 'pretty_truncate', 'pretty_float', 'nonliteral_representation', 'literal_representation',
-           'all_subclasses']
+__all__ = ['composite', 'subclasses']
 
 class _Composite :
     def __init__ (self, key=lambda object : (), identity=lambda object : (id(object),)) :
@@ -48,43 +48,12 @@ def composite (*args, **kw) :
 
     return _Composite(*args, **kw)
 
-def pretty_truncate (string, cutoff=100, tail='...') :
-    ''' This limits the length of a string in a somewhat aesthetically pleasing fashion. '''
+def subclasses (cls) :
+    ''' This recursively yields all of the subclasses for a class. '''
 
-    try :
-        return string[:cutoff].rstrip() + tail if len(string) > cutoff else string
-    except TypeError :
-        # This happens if <cutoff> is None
-        return string
-
-_PrettyFloat = type('_PrettyFloat', (float,), {'__repr__' : lambda self : '%0.4f' % self})
-
-def pretty_float (value) :
-    return _PrettyFloat(value)
-
-def _representation_args_and_kw (*args, **kw) :
-    # <sorted> is used to make the keyword argument order deterministic.
-    return chain((repr(arg) for arg in args),
-                 sorted(str(name) + '=' + repr(value) for name, value in kw.items()))
-
-def nonliteral_representation (object, *args, **kw) :
-    ''' This is a function for generating representations (<repr>) that can't be used as literal Python code. '''
-
-    representation = chain((object.__class__.__name__,),
-                           _representation_args_and_kw(*args, **kw))
-
-    return '<' + ' '.join(representation) + '>'
-
-def literal_representation (object, *args, **kw) :
-    ''' This is a function for generating representations (<repr>) that can be used as literal Python code. '''
-
-    return '{class_name}({args_and_kw})'.format(class_name=object.__class__.__name__,
-                                                args_and_kw=', '.join(_representation_args_and_kw(*args, **kw)))
-
-def all_subclasses (cls) :
     for subclass in cls.__subclasses__() :
         yield subclass
-        yield from all_subclasses(subclass)
+        yield from subclasses(subclass)
 
 def __test__ (ut) :
 
@@ -139,23 +108,6 @@ def __test__ (ut) :
             pass
     baz = Baz()
     ut.assert_raises(lambda : baz.bar, TypeError)
-
-    ut.assert_equal(pretty_truncate('hello world', 6, '...'), 'hello...')
-    ut.assert_equal(pretty_truncate('hello world', 10000, '...'), 'hello world')
-
-    ut.assert_equal(repr(pretty_float(1.30)), '1.3000')
-
-    object, args, kw = ('', (1, 2, 3), {'foo' : 35, 'bar' : 40})
-
-    ut.assert_equal(nonliteral_representation(object, *args, **kw), '<str 1 2 3 bar=40 foo=35>')
-    ut.assert_equal(nonliteral_representation(object, *args), '<str 1 2 3>')
-    ut.assert_equal(nonliteral_representation(object, **kw), '<str bar=40 foo=35>')
-    ut.assert_equal(nonliteral_representation(object), '<str>')
-
-    ut.assert_equal(literal_representation(object, *args, **kw), 'str(1, 2, 3, bar=40, foo=35)')
-    ut.assert_equal(literal_representation(object, *args), 'str(1, 2, 3)')
-    ut.assert_equal(literal_representation(object, **kw), 'str(bar=40, foo=35)')
-    ut.assert_equal(literal_representation(object), 'str()')
 
 if __name__ == '__main__' :
     from nlplib.general.unittest import UnitTest
@@ -219,17 +171,5 @@ if __name__ == '__main__' :
     print(foo.bar)
     print(foo.foo)
     print(foo.foo)
-
-
-
-
-
-
-
-
-
-
-
-
 
 

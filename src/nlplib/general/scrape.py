@@ -1,12 +1,14 @@
+''' Tools for scraping text from the internet. '''
+
 
 from functools import wraps
 from urllib.request import build_opener, URLError
 
+from nlplib.general.represent import pretty_truncate
 from nlplib.general.thread import simultaneously
 from nlplib.general.iterate import chunked
 from nlplib.core.base import Base
 from nlplib.core.exc import NLPLibError
-from nlplib.general import pretty_truncate
 
 __all__ = ['CouldNotOpenURL', 'Response', 'Scraped', 'scraper']
 
@@ -14,6 +16,8 @@ class CouldNotOpenURL (NLPLibError) :
     pass
 
 class Response (Base) :
+    ''' A class representing a response from a website. '''
+
     __slots__ = ('url', 'text', 'request_url')
 
     def __init__ (self, url, text, request_url=None) :
@@ -42,22 +46,24 @@ class Scraped (Base) :
 
     # todo : unify serial chunk_size and max_workers
 
-    def __init__ (self, urls, revisit=True, silent=False, chunk_size=20, max_workers=None, user_agent='nlplib',
-                  serial=False, encoding='utf-8') :
+    def __init__ (self, urls, silent=False, revisit=True, chunk_size=20, max_workers=None, serial=False,
+                  user_agent='nlplib', encoding='utf-8', visited_urls=()) :
 
         self.urls = urls
-        self.revisit = revisit
         self.silent = silent
-        self.chunk_size = chunk_size
+        self.revisit = revisit
+
+        self.chunk_size  = chunk_size
         self.max_workers = max_workers
+        self.serial      = serial
+
         self.user_agent = user_agent
-        self.serial = serial
         self.encoding = encoding
 
-        self._visited_urls = set()
+        self.visited_urls = set(visited_urls)
 
     def __iter__ (self) :
-        self._visited_urls.clear()
+        self.visited_urls.clear()
 
         opener = self._make_opener()
 
@@ -91,25 +97,35 @@ class Scraped (Base) :
             return self.could_not_open_url(exc, request_url)
 
     def _could_open_url (self, response) :
-        if response.url in self._visited_urls :
+        if response.url in self.visited_urls :
             return self.been_at_url_before(response)
         else :
             if not self.revisit :
-                self._visited_urls.add(response.url)
+                self.visited_urls.add(response.url)
 
             return self.not_been_at_url_before(response)
 
-    def been_at_url_before (self, response) :
-        pass
-
     def not_been_at_url_before (self, response) :
+        ''' The behavior for when the scraper gets a response from a URL it hasn't seen before. '''
+
         return response
 
+    def been_at_url_before (self, response) :
+        ''' Behavior for when the scraper gets a response from a URL it has seen before. '''
+
+        pass
+
     def could_not_open_url (self, exc, url) :
+        ''' Behavior when a scraper couldn't get a response from a url. If the <silent> attribute is
+            false (the default), this will throw errors. '''
+
         if not self.silent :
             raise CouldNotOpenURL(str(exc) + '\nhappened with the url : %s' % str(url))
 
 def scraper (*args, cls=Scraped, **kw) :
+    ''' This takes a generator function that yields URLs, and makes it yield responses from those URLs. The <Scraped>
+        class has been specifically designed to allow for the use of infinite generator functions. '''
+
     def wrapper (generator) :
         @wraps(generator)
         def with_generator (*wrapped_args, **wrapped_kw) :
@@ -188,14 +204,16 @@ def __test__ (ut) :
             break
 
 def __demo__ () :
+    ''' A demonstration of the scraper decorator. '''
+
     @scraper(silent=True)
-    def scrape () :
+    def scraped () :
         yield 'http://www.wikipedia.org'
         yield 'http://python.org'
         yield 'http://missingparenthesis.com/foobar'
 
-    for response in scrape() :
-        print(repr(response))
+    for response in scraped() :
+        print(repr(response)) # Notice how the URL has been switched out with a response.
 
 if __name__ == '__main__' :
     from nlplib.general.unittest import UnitTest

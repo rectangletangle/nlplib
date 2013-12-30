@@ -4,7 +4,7 @@
 from sqlalchemy.orm import relationship, reconstructor, backref, column_property
 from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, UniqueConstraint, Table
 
-from nlplib.core.model.sqlalchemy.base import ClassMapper
+from nlplib.core.model.sqlalchemy_.base import ClassMapper
 from nlplib.core.model.naturallanguage import Document, Seq, Gram, Word, Index
 
 class DocumentMapper (ClassMapper) :

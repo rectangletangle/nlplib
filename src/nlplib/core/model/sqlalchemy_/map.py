@@ -3,13 +3,13 @@
 from sqlalchemy.exc import ArgumentError
 from sqlalchemy import MetaData
 
-from nlplib.core.model.sqlalchemy.base import ClassMapper
+from nlplib.core.model.sqlalchemy_.base import ClassMapper
 
-# These modules must be imported so that the call to <all_subclasses> works properly.
-from nlplib.core.model.sqlalchemy import naturallanguage, neuralnetwork
+# These modules must be imported so that the call to <subclasses> works properly.
+from nlplib.core.model.sqlalchemy_ import naturallanguage, neuralnetwork
 
 from nlplib.core.base import Base
-from nlplib.general import all_subclasses
+from nlplib.general import subclasses
 
 __all__ = ['Mapped', 'default_mapped']
 
@@ -19,7 +19,7 @@ class Mapped (Base) :
 
         self.tables = self.metadata.tables
 
-        self.class_mappers = [class_mapper for class_mapper in all_subclasses(ClassMapper)
+        self.class_mappers = [class_mapper for class_mapper in subclasses(ClassMapper)
                               if getattr(class_mapper, '__abstract__', False) is not True]
 
         self.classes = {class_mapper.name : class_mapper.cls

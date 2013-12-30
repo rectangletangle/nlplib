@@ -1,3 +1,5 @@
+''' This module handles unit testing for the package. If this module is ran as a script, it will run all of the tests
+    for the entire package. These tests are denoted by the <__test__> module level functions. '''
 
 
 import unittest

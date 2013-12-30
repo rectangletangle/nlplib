@@ -3,7 +3,7 @@
 from nlplib.core.base import Base
 
 class Model (Base) :
-    ''' The base class for all models. '''
+    ''' The base class for all database models. '''
 
     pass
 

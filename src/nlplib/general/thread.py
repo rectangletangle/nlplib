@@ -1,3 +1,4 @@
+''' Tools for dealing with multithreaded programs. '''
 
 
 from concurrent.futures import ThreadPoolExecutor

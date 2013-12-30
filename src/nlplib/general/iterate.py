@@ -4,7 +4,7 @@
 import itertools
 import collections
 
-__all__ = ['windowed', 'chunked', 'chop', 'generates', 'paired', 'united']
+__all__ = ['windowed', 'chunked', 'chop', 'generates', 'truncated', 'paired', 'united', 'flattened']
 
 def windowed (iterable, size, step=1, trail=False) :
     ''' This function yields a tuple of a given size, then steps forward. If the step is smaller than the size, the
@@ -56,7 +56,7 @@ def generates (generator) :
     else :
         return itertools.chain((first,), iterable)
 
-def truncate (iterable, amount) :
+def truncated (iterable, amount) :
     ''' This allows for iteration over all but the last couple of items in an iterable. '''
 
     queue   = collections.deque()
@@ -135,13 +135,14 @@ def __test__ (ut) :
     ut.assert_doesnt_raise(lambda : next(generates_something()), StopIteration)
     ut.assert_raises(lambda : next(generates_nothing()), StopIteration)
 
-    ut.assert_equal(list(truncate(range(4), 1)),    [0, 1, 2]       )
-    ut.assert_equal(list(truncate(range(10), 4)),   list(range(6))  )
-    ut.assert_equal(list(truncate(range(10), 0)),   list(range(10)) )
-    ut.assert_equal(list(truncate(range(10), -1)),  list(range(10)) )
-    ut.assert_equal(list(truncate(range(10), -34)), list(range(10)) )
-    ut.assert_equal(list(truncate(range(10), 34)),  []              )
-    ut.assert_equal(list(truncate(range(10), 10)),  []              )
+    ut.assert_equal(list(truncated([], 1)),          []              )
+    ut.assert_equal(list(truncated(range(4), 1)),    [0, 1, 2]       )
+    ut.assert_equal(list(truncated(range(10), 4)),   list(range(6))  )
+    ut.assert_equal(list(truncated(range(10), 0)),   list(range(10)) )
+    ut.assert_equal(list(truncated(range(10), -1)),  list(range(10)) )
+    ut.assert_equal(list(truncated(range(10), -34)), list(range(10)) )
+    ut.assert_equal(list(truncated(range(10), 34)),  []              )
+    ut.assert_equal(list(truncated(range(10), 10)),  []              )
 
     ut.assert_equal(list(paired([])), [])
     ut.assert_equal(list(paired([0])), [])

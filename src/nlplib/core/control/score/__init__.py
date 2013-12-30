@@ -2,8 +2,8 @@
 
 from functools import total_ordering
 
-from nlplib.general.math import normalize_values
-from nlplib.general import pretty_float
+from nlplib.general.represent import pretty_float
+from nlplib.general.math import normalized
 from nlplib.core.base import Base
 
 __all__ = ['WeightedFunction', 'Score', 'Scored', 'ScoredAgainst', 'weighted']
@@ -32,9 +32,13 @@ class WeightedFunction (Base) :
 
         return (1.0 - normalized_score) if self.low_is_better else normalized_score
 
+def weighted (function, *args, **kw) :
+    # todo : use functools.wraps
+    return WeightedFunction(function, *args, **kw)
+
 @total_ordering
 class Score (Base) :
-    ''' This is an object designed to hold the scores and subscores for a particular object. '''
+    ''' This is an object used to hold the scores and subscores for a particular object. '''
 
     __slots__ = ('object', 'score', 'subscores')
 
@@ -75,11 +79,13 @@ class Score (Base) :
             raise self._unorderable_error()
 
 class Scored (Base) :
+    ''' Scoring objects with their score attribute normalized between 0.0 and 1.0 (1.0 indicating a better match). '''
+
     def __init__ (self, unnormalized_scores) :
         self.unnormalized_scores = list(unnormalized_scores)
 
     def __iter__ (self) :
-        normalized_score_values = normalize_values(score.score for score in self.unnormalized_scores)
+        normalized_score_values = normalized(score.score for score in self.unnormalized_scores)
 
         for unnormalized_score, normalized_score_value in zip(self.unnormalized_scores, normalized_score_values) :
             normalized_score = Score(object=unnormalized_score.object, score=normalized_score_value)
@@ -87,19 +93,21 @@ class Scored (Base) :
             yield normalized_score
 
     def sorted (self) :
+        ''' The scores in sorted order, high to low. '''
+
         # todo : This probably could be done in a more efficient manner.
         sorted_by_objects_only = sorted(self, key=lambda score : score.object)
         return sorted(sorted_by_objects_only, reverse=True)
 
     def ranked (self) :
-        ''' This returns objects ordered by how high their score was. '''
+        ''' This returns the scored objects ordered by how high their score was. '''
 
-        for scored in self.sorted() :
-            yield scored.object
+        for score in self.sorted() :
+            yield score.object
 
 class ScoredAgainst (Scored) :
-    ''' This class is used to generate scores normalized between 0 and 1 (1 indicating a better match), based on a
-        weighted average of multiple sub-scores. '''
+    ''' This class is used to generate scores normalized between 0.0 and 1.0, based on a weighted average of multiple
+        sub-scores. '''
 
     def __init__ (self, object, similar_objects, weighted_scoring_functions=()) :
         self.object = object
@@ -116,7 +124,7 @@ class ScoredAgainst (Scored) :
             unnormalized_subscores = (scoring_function(self.object, score.object)
                                       for score in scores)
 
-            normalized_subscores = normalize_values(unnormalized_subscores)
+            normalized_subscores = normalized(unnormalized_subscores)
 
             for score, normalized_subscore in zip(scores, normalized_subscores) :
                 score.subscores[scoring_function] = scoring_function.adjust_orientation(normalized_subscore)
@@ -136,9 +144,6 @@ class ScoredAgainst (Scored) :
                 score.score = 1.0
 
             yield score
-
-def weighted (function, *args, **kw) :
-    return WeightedFunction(function, *args, **kw)
 
 def __test__ (ut) :
     from nlplib.core.control.score import metric

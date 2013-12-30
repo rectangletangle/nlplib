@@ -11,8 +11,15 @@ from nlplib.general import iterate, math
 from nlplib.general.iterate import flattened
 
 _plot_colors = ('red', 'blue', 'green', 'magenta', 'cyan', 'yellow', 'orange', 'pink')
-def plot (iterable, key=lambda item : item, sample_size=1, depth=1, colors=_plot_colors,
-          basecase=lambda lst : all(not isinstance(item, list) for item in lst), _show=True) :
+
+def _plot_basecase (lst) :
+    return all(not isinstance(item, list) for item in lst)
+
+def plot (iterable, key=lambda item : item, sample_size=1, depth=1, colors=_plot_colors, basecase=_plot_basecase,
+          _show=True) :
+    ''' This function can be used for plotting an iterable graphically. If matplotlib isn't installed, this will only
+        throw a warning, and no GUI will be launched.. '''
+
     try :
         pyplot
     except NameError :

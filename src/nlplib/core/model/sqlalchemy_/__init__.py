@@ -1,4 +1,4 @@
-''' This storage back-end depends on the SQLAlchemy package
+''' This persistence back-end depends on the SQLAlchemy package
     url : http://www.sqlalchemy.org '''
 
 
@@ -8,8 +8,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import exc as sqlalchemy_exc
 from sqlalchemy import create_engine
 
-from nlplib.core.model.sqlalchemy.map import default_mapped
-from nlplib.core.model.sqlalchemy.access import Access
+from nlplib.core.model.sqlalchemy_.map import default_mapped
+from nlplib.core.model.sqlalchemy_.access import Access
 from nlplib.core.model.exc import IntegrityError, StorageError
 from nlplib.core.model import abstract
 

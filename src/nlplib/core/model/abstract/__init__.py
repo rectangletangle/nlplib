@@ -48,7 +48,7 @@ class Database (Base) :
         return super().__repr__(self.path, *args, **kw)
 
     def __enter__ (self) :
-        session = self._make_session()
+        session = self.session()
         self._sessions_currently_open.append(session)
         return session.__enter__()
 
@@ -58,22 +58,22 @@ class Database (Base) :
         except IndexError :
             pass
 
-    @contextmanager
-    def _make_session (self) :
-        raise NotImplementedError
+    def __call__ (self, function) :
+        ''' This allows a database instance to be used as a decorator. '''
 
-    def session (self, function=None) :
+        @wraps(function)
+        def within_session (*args, **kw) :
+            with self.session() as session :
+                return function(session, *args, **kw)
+
+        return within_session
+
+    @contextmanager
+    def session (self) :
         ''' This allows for objects within the database to be accessed and manipulated within a transaction like
             context. '''
 
-        if callable(function) :
-            @wraps(function)
-            def with_session (*args, **kw) :
-                with self._make_session() as session :
-                    return function(session, *args, **kw)
-            return with_session
-        else :
-            return self._make_session()
+        raise NotImplementedError
 
 def abstract_test (ut, db_cls) :
     from nlplib.core.model import Word
@@ -104,7 +104,7 @@ def abstract_test (ut, db_cls) :
 
     db = db_cls()
 
-    @db.session
+    @db
     def foo (session, *args) :
         for arg in args :
             session.add(Word(arg))
@@ -121,4 +121,32 @@ def abstract_test (ut, db_cls) :
 
     with db.session() as session :
         ut.assert_equal(sorted(session.access.all_words()), [Word('3'), Word('4'), Word('5')])
+
+    # Tests rollback.
+    db = db_cls()
+    try :
+        with db as session :
+            session.add(Word('a'))
+            session.add(Word('b'))
+            raise IOError # An arbitrary exception
+    except IOError :
+        pass
+
+    with db as session :
+        ut.assert_equal(list(session.access.all_words()), [])
+
+    @db
+    def bar (session) :
+        session.add(Word('c'))
+        session.add(Word('d'))
+        raise KeyError
+
+    try :
+        bar()
+    except KeyError :
+        pass
+
+    with db as session :
+        ut.assert_equal(list(session.access.all_words()), [])
+
 

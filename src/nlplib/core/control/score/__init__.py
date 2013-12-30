@@ -57,13 +57,9 @@ class Score (Base) :
         return TypeError('Value comparisons with a <Score> object must be against an object which can be converted to '
                          'a floating point number.')
 
-    def __iter__ (self) :
+    def __getitem__ (self, index) :
         ''' This allows for use of Python's multiple assignment syntax. '''
 
-        yield self.object
-        yield self.score
-
-    def __getitem__ (self, index) :
         return (self.object, self.score)[index]
 
     def __lt__ (self, other) :
@@ -206,6 +202,10 @@ def __test__ (ut) :
     ut.assert_equal(list(ranked),
                     [Word('th'), Word('them'), Word('they'), Word('their'), Word('there'), Word('though'),
                      Word('platypus')])
+
+    object, score = Score('a', 3/47)
+    ut.assert_equal(object, 'a')
+    ut.assert_equal(score, 3/47)
 
     Word.count = prop
 

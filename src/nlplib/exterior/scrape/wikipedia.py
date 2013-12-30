@@ -7,6 +7,7 @@ from nlplib.exterior.scrape.parse import parse_html
 from nlplib.general.scrape import Scraped
 from nlplib.core.process.token import split
 from nlplib.core.model import Document
+from nlplib.general.iterate import flattened
 from nlplib.general.thread import simultaneously
 
 __all__ = ['RandomlyScrapedFromWikipedia', 'gather_documents']
@@ -23,17 +24,11 @@ class RandomlyScrapedFromWikipedia (Scraped) :
 
         super().__init__(urls, silent=silent, *args, **kw)
 
-def _flatten (iterable) :
-    if not isinstance(iterable, str) :
-        for item in iterable :
-            yield from _flatten(item)
-    else :
-        yield iterable
-
 def _make_document_from_response (response) :
     soup = parse_html(response.text)
 
-    string = ''.join(_flatten(tag.find_all(text=True, recursive=True) for tag in soup.find_all('p')))
+    string = ''.join(flattened((tag.find_all(text=True, recursive=True) for tag in soup.find_all('p')),
+                               basecase=lambda tags : isinstance(tags, str)))
 
     return Document(string,
                     word_count=len(list(split(string))),

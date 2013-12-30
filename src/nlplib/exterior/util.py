@@ -8,30 +8,38 @@ except ImportError :
     pass
 
 from nlplib.general import iterate, math
+from nlplib.general.iterate import flattened
 
-def plot (iterable, key=lambda item : item, chunk_size=1, show=True) :
+_plot_colors = ('red', 'blue', 'green', 'magenta', 'cyan', 'yellow', 'orange', 'pink')
+def plot (iterable, key=lambda item : item, sample_size=1, depth=1, colors=_plot_colors,
+          basecase=lambda lst : all(not isinstance(item, list) for item in lst), _show=True) :
     try :
         pyplot
     except NameError :
         warnings.warn('matplotlib must be installed in order to see the plot graphic.', Warning)
     else :
-        xs, ys = zip(*((i, math.avg(key(item) for item in chunk))
-                       for i, chunk in enumerate(iterate.chunked(iterable, chunk_size))))
+        for i, iterable in enumerate(flattened(iterable, basecase)) :
+            xs, ys = zip(*((i, math.avg(key(item) for item in sample))
+                           for i, sample in enumerate(iterate.chunked(iterable, sample_size))))
 
-        pyplot.plot(xs, ys, linewidth=1.0)
+            pyplot.plot(xs, ys, linewidth=1.0, color=colors[i % len(colors)])
 
-        if show :
+        if _show :
             pyplot.show()
 
 def __test__ (ut) :
     plot([1.0, 0.754, 0.4, 0.2, 0.01],
-         show=False)
+         _show=False)
 
     plot([(1.0, None), (0.754, None), (0.4, None), (0.2, None), (0.01, None)],
          lambda item : item[0],
-         show=False)
+         _show=False)
+
+def __demo__ () :
+    plot([[1.0, 0.754, 0.4, 0.2, 0.01], [1.0, 0.644, 0.24, 0.243, 0.032], [1.0, 0.93, 0.80, 0.65, 0.022]])
 
 if __name__ == '__main__' :
     from nlplib.general.unittest import UnitTest
     __test__(UnitTest())
+    __demo__()
 

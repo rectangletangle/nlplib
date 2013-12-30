@@ -1,6 +1,6 @@
 
 
-from nlplib.core.process.token import re_tokenize
+from nlplib.core.process.token import re_tokenized
 from nlplib.core.process import stem
 from nlplib.core.model import Word, Gram, Index
 from nlplib.general.iterate import windowed
@@ -17,7 +17,7 @@ class HitStopSeq (DontParse) :
 
 class Parsed (Base) :
     def __init__ (self, document, stop_seqs=None, max_gram_length=1, yield_grams=True, stem=stem.clean,
-                  tokenize=re_tokenize) :
+                  tokenize=re_tokenized) :
 
         self.document = document
 
@@ -104,7 +104,8 @@ class Parsed (Base) :
                       first_token.index,
                       last_token.index,
                       first_token.first_character_index,
-                      last_token.last_character_index)
+                      last_token.last_character_index,
+                      self.tokenize.__name__)
 
         seq.indexes.append(index)
 
@@ -122,19 +123,23 @@ def __test__ (ut) :
         session.add(Document(text))
 
     with db as session :
-        parsed = Parsed(list(session.access.all_documents())[0], max_gram_length=max_gram_length)
+        parsed = Parsed(list(session.access.all_documents())[0], max_gram_length=max_gram_length,
+                             tokenize=re_tokenized)
         unique_seqs = set(parsed)
 
         words = [seq for seq in unique_seqs if isinstance(seq, Word)]
         grams = [seq for seq in unique_seqs if isinstance(seq, Gram)]
 
         ut.assert_equal({str(word) for word in words},
-                        {stem.clean(token) for token in re_tokenize(text)})
+                        {stem.clean(token) for token in re_tokenized(text)})
 
         ut.assert_equal(min(len(gram) for gram in grams), 2)
         ut.assert_equal(max(len(gram) for gram in grams), 7)
         ut.assert_equal(len(words), 26)
         ut.assert_equal(len(grams), 177)
+
+        ut.assert_true(all(index.tokenization_algorithm == 're_tokenized'
+                           for seq in parsed for index in seq.indexes))
 
     # The parser shouldn't have any database related side-effects.
     with db as session :

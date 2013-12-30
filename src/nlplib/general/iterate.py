@@ -87,6 +87,18 @@ def united (paired) :
         for first, second in paired :
             yield second
 
+def flattened (iterable, basecase=None) :
+    if basecase is None :
+        def basecase (iterable) :
+            return not hasattr(iterable, '__iter__')
+
+    if not basecase(iterable) :
+        for item in iterable :
+            yield from flattened(item, basecase=basecase)
+    else :
+        item = iterable
+        yield item
+
 def __test__ (ut) :
     ut.assert_equal(list(windowed(range(6), 3, 3)), [(0, 1, 2), (3, 4, 5)])
     ut.assert_equal(list(windowed(range(6), 1, 1)), [(0,), (1,), (2,), (3,), (4,), (5,)])
@@ -141,6 +153,13 @@ def __test__ (ut) :
     ut.assert_equal(list(united(paired([0, 1]))), [0, 1])
     ut.assert_equal(list(united(paired(range(3)))), list(range(3)))
     ut.assert_equal(list(united(paired(range(12)))), list(range(12)))
+
+    ut.assert_equal(list(flattened([])), [])
+    ut.assert_equal(list(flattened([[], [[], []]])), [])
+    ut.assert_equal(list(flattened([[[0]], [1, [2]], [3]])), [0, 1, 2, 3])
+    ut.assert_equal(list(flattened([[(0,)], [(1,), [], []], (2,)],
+                                   basecase=lambda iterable : isinstance(iterable, tuple))),
+                    [(0,), (1,), (2,)])
 
 if __name__ == '__main__' :
     from nlplib.general.unittest import UnitTest

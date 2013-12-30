@@ -1,11 +1,10 @@
 
-
 from math import log, tanh
 
 __all__ = ['normalized', 'avg', 'hyperbolic', 'tanh', 'dtanh']
 
 def normalized (unnormalized, key=None, default=1.0) :
-    ''' This yields values from a list normalized between 0.0 and 1.0. '''
+    ''' This yields values normalized between 0.0 and 1.0 from a list. '''
 
     if callable(key) :
         unnormalized_values = [key(item) for item in unnormalized]

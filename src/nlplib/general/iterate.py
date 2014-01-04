@@ -144,20 +144,20 @@ def __test__ (ut) :
     ut.assert_equal(list(truncated(range(10), 34)),  []              )
     ut.assert_equal(list(truncated(range(10), 10)),  []              )
 
-    ut.assert_equal(list(paired([])), [])
-    ut.assert_equal(list(paired([0])), [])
-    ut.assert_equal(list(paired(range(4))), [(0, 1), (1, 2), (2, 3)])
-    ut.assert_equal(list(paired(range(5))), [(0, 1), (1, 2), (2, 3), (3, 4)])
+    ut.assert_equal(list(paired([])),       []                               )
+    ut.assert_equal(list(paired([0])),      []                               )
+    ut.assert_equal(list(paired(range(4))), [(0, 1), (1, 2), (2, 3)]         )
+    ut.assert_equal(list(paired(range(5))), [(0, 1), (1, 2), (2, 3), (3, 4)] )
 
-    ut.assert_equal(list(united(paired([]))), [])
-    ut.assert_equal(list(united(paired([0]))), [])
-    ut.assert_equal(list(united(paired([0, 1]))), [0, 1])
-    ut.assert_equal(list(united(paired(range(3)))), list(range(3)))
-    ut.assert_equal(list(united(paired(range(12)))), list(range(12)))
+    ut.assert_equal(list(united(paired([]))),        []              )
+    ut.assert_equal(list(united(paired([0]))),       []              )
+    ut.assert_equal(list(united(paired([0, 1]))),    [0, 1]          )
+    ut.assert_equal(list(united(paired(range(3)))),  list(range(3))  )
+    ut.assert_equal(list(united(paired(range(12)))), list(range(12)) )
 
-    ut.assert_equal(list(flattened([])), [])
-    ut.assert_equal(list(flattened([[], [[], []]])), [])
-    ut.assert_equal(list(flattened([[[0]], [1, [2]], [3]])), [0, 1, 2, 3])
+    ut.assert_equal(list(flattened([])),                     []           )
+    ut.assert_equal(list(flattened([[], [[], []]])),         []           )
+    ut.assert_equal(list(flattened([[[0]], [1, [2]], [3]])), [0, 1, 2, 3] )
     ut.assert_equal(list(flattened([[(0,)], [(1,), [], []], (2,)],
                                    basecase=lambda iterable : isinstance(iterable, tuple))),
                     [(0,), (1,), (2,)])

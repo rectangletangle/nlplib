@@ -27,7 +27,7 @@ def plot (iterable, key=lambda item : item, sample_size=1, depth=1, colors=_plot
     else :
         for i, iterable in enumerate(flattened(iterable, basecase)) :
             xs, ys = zip(*((i, math.avg(key(item) for item in sample))
-                           for i, sample in enumerate(iterate.chunked(iterable, sample_size))))
+                           for i, sample in enumerate(iterate.chunked(iterable, sample_size, trail=True))))
 
             pyplot.plot(xs, ys, linewidth=1.0, color=colors[i % len(colors)])
 

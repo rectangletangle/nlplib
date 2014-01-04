@@ -3,10 +3,10 @@
 from nlplib.exterior.scrape.wikipedia import gather_documents
 from nlplib.core.process.index import Indexed
 from nlplib.general.iterate import chunked
-from nlplib.general.time import timing
+from nlplib.general import timing
 
 @timing
-def make_db (db, amount=500) :
+def make_db (db, amount=100) :
     total = 0
     for chunk in chunked(enumerate(gather_documents(amount), total + 1), 100, trail=True) :
         with db as session :

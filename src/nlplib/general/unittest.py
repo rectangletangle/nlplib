@@ -13,7 +13,7 @@ _log_switch = {None     : lambda output : output,
                'print'  : lambda output : print(output),
                True     : lambda output : print(output)}
 
-def _logging_function (mode) : # This is used in <nlplib.general.time> too.
+def _logging_function (mode) : # This is used in <nlplib.general.timing> too.
     return _log_switch.get(mode, mode)
 
 class UnitTest :

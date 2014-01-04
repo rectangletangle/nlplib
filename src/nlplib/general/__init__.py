@@ -2,9 +2,12 @@
     tasks. '''
 
 
+from time import time
 from functools import wraps
 
-__all__ = ['composite', 'subclasses']
+from nlplib.general.unittest import _logging_function
+
+__all__ = ['composite', 'subclasses', 'timing']
 
 class _Composite :
     def __init__ (self, key=lambda object : (), identity=lambda object : (id(object),)) :
@@ -54,6 +57,21 @@ def subclasses (cls) :
     for subclass in cls.__subclasses__() :
         yield subclass
         yield from subclasses(subclass)
+
+def timing (function, log=print) :
+    ''' A simple decorator which prints how long a function took to return. '''
+
+    log = _logging_function(log)
+
+    @wraps(function)
+    def timed (*args, **kw) :
+        time_0 = time()
+        ret = function(*args, **kw)
+        time_1 = time()
+        log('the function <%s> took %0.3f seconds' % (function.__name__, time_1 - time_0))
+        return ret
+
+    return timed
 
 def __test__ (ut) :
 
@@ -109,67 +127,77 @@ def __test__ (ut) :
     baz = Baz()
     ut.assert_raises(lambda : baz.bar, TypeError)
 
+def __demo__ () :
+    from time import sleep
+
+    @timing
+    def foo () :
+        sleep(0.35)
+
+    foo()
+
 if __name__ == '__main__' :
     from nlplib.general.unittest import UnitTest
     __test__(UnitTest())
+    __demo__()
 
-    def comp () :
-        name = 'bar'
-        isset = False
-        normvalue = None
-
-        def wrapper (function) :
-            compvalue = None
-
-            def getter (self) :
-                return compvalue
-
-            def setter (self, value) :
-                nonlocal compvalue, isset
-                compvalue = value
-                isset = True
-
-            def norm (*args, **kw) :
-                if isset or normvalue is None :
-                    nonlocal isset, normvalue
-                    isset = False
-                    normvalue = function(*args, **kw)
-                    return normvalue
-                else :
-                    return normvalue
-
-            def _wrapper (self, *args, **kw) :
-
-                compvalue = getattr(self, name)
-                setattr(self.__class__, name, property(getter, setter))
-
-                # todo : check if already prop, so this can be nested
-                setattr(self.__class__, function.__name__, property(norm))
-
-                return function(self, *args, **kw)
-
-            return property(_wrapper)
-
-        return wrapper
-
-    class Foo :
-        def __init__ (self) :
-            self.bar = 32
-
-        @comp()
-        def foo (self) :
-            print(24)
-            return 'something'
-
-    foo = Foo()
-
-    foo.bar = 'set 0'
-    print(foo.bar)
-    print(foo.foo)
-    print(foo.foo)
-    foo.bar = 'set 1'
-    print(foo.bar)
-    print(foo.foo)
-    print(foo.foo)
+##    def comp () :
+##        name = 'bar'
+##        isset = False
+##        normvalue = None
+##
+##        def wrapper (function) :
+##            compvalue = None
+##
+##            def getter (self) :
+##                return compvalue
+##
+##            def setter (self, value) :
+##                nonlocal compvalue, isset
+##                compvalue = value
+##                isset = True
+##
+##            def norm (*args, **kw) :
+##                if isset or normvalue is None :
+##                    nonlocal isset, normvalue
+##                    isset = False
+##                    normvalue = function(*args, **kw)
+##                    return normvalue
+##                else :
+##                    return normvalue
+##
+##            def _wrapper (self, *args, **kw) :
+##
+##                compvalue = getattr(self, name)
+##                setattr(self.__class__, name, property(getter, setter))
+##
+##                # todo : check if already prop, so this can be nested
+##                setattr(self.__class__, function.__name__, property(norm))
+##
+##                return function(self, *args, **kw)
+##
+##            return property(_wrapper)
+##
+##        return wrapper
+##
+##    class Foo :
+##        def __init__ (self) :
+##            self.bar = 32
+##
+##        @comp()
+##        def foo (self) :
+##            print(24)
+##            return 'something'
+##
+##    foo = Foo()
+##
+##    foo.bar = 'set 0'
+##    print(foo.bar)
+##    print(foo.foo)
+##    print(foo.foo)
+##    foo.bar = 'set 1'
+##    print(foo.bar)
+##    print(foo.foo)
+##    print(foo.foo)
 
 

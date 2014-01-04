@@ -143,7 +143,7 @@ class Train (SessionDependent) :
                    self.session.access.output_nodes_for_seqs(self.neural_network, output_seqs))
 
 def __test__ (ut) :
-    from collections import OrderedDict
+##    from collections import OrderedDict
 
     from nlplib.core.control.neuralnetwork.layered import MakeMultilayerPerceptron, StaticIO, Static
     from nlplib.core.model import Database, NeuralNetwork, Word
@@ -173,16 +173,16 @@ def __test__ (ut) :
     with db as session :
         nn = session.access.neural_network('foo')
 
-        def deterministic_dict (dict_) :
-            # Because dictionary iteration order is undefined behavior, and in some Python implementations not even
-            # deterministic, we introduce deterministic iteration order to the algorithm using the ordered dictionary
-            # type.
-
-            return OrderedDict(sorted(dict_.items(), key=lambda item : item[1].affinity))
-
-        for node in session.access.nodes(nn) :
-            node.inputs  = deterministic_dict(node.inputs)
-            node.outputs = deterministic_dict(node.outputs)
+##        def deterministic_dict (dict_) :
+##            # Because dictionary iteration order is undefined behavior, and in some Python implementations not even
+##            # deterministic, we introduce deterministic iteration order to the algorithm using the ordered dictionary
+##            # type.
+##
+##            return OrderedDict(sorted(dict_.items(), key=lambda item : item[1].affinity))
+##
+##        for node in session.access.nodes(nn) :
+##            node.inputs  = deterministic_dict(node.inputs)
+##            node.outputs = deterministic_dict(node.outputs)
 
         a, b, c, d, e, f = session.access.words('a b c d e f')
 

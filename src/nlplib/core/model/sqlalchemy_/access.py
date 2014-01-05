@@ -55,7 +55,7 @@ class Access (abstract.Access) :
             input_filter = () if input is None else (IONode.is_input == input,)
 
             return io_node_query.filter(IONode.neural_network == neural_network,
-                                        or_(IONode._seq_id.in_(ids), IONode._seq_id == None),
+                                        or_(IONode._model_id.in_(ids), IONode._model_id == None),
                                         *input_filter).all()
         else :
             return []

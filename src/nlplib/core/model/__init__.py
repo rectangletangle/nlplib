@@ -4,7 +4,7 @@
 from nlplib.core.model.base import Model, SessionDependent
 
 from nlplib.core.model.naturallanguage import Document, Seq, Gram, Word, Index
-from nlplib.core.model.neuralnetwork import * # todo : make explicit
+from nlplib.core.model.neuralnetwork import NeuralNetwork, Perceptron, NeuralNetworkElement, Link, Node, IONode
 
 try :
     from nlplib.core.model.sqlalchemy_ import Database
@@ -21,6 +21,7 @@ __all__ = ['Model',
            'Index',
 
            'NeuralNetwork',
+           'Perceptron',
            'NeuralNetworkElement',
            'Link',
            'Node',

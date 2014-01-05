@@ -1,6 +1,6 @@
 
 
-from nlplib.core.control.neuralnetwork import Prediction, Train, layered
+from nlplib.core.control.neuralnetwork import Prediction, Train, structure
 from nlplib.core.control.score import Scored
 from nlplib.core.process.parse import Parsed
 from nlplib.core.model import SessionDependent, NeuralNetwork
@@ -28,10 +28,10 @@ class MakeAutocompleteNeuralNetwork (SessionDependent) :
 
         words = list(self.session.access.most_common(top=self.top)) + [None]
 
-        layered.MakeMultilayerPerceptron(neural_network,
-                                         layered.StaticIO(words),
-                                         layered.Static(len(words)),
-                                         layered.StaticIO(words))()
+        structure.MakePerceptron(neural_network,
+                                 structure.StaticIO(words),
+                                 structure.Static(len(words)),
+                                 structure.StaticIO(words))()
 
         return neural_network
 

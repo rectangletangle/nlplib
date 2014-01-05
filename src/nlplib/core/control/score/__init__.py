@@ -33,7 +33,6 @@ class WeightedFunction (Base) :
         return (1.0 - normalized_score) if self.low_is_better else normalized_score
 
 def weighted (function, *args, **kw) :
-    # todo : use functools.wraps
     return WeightedFunction(function, *args, **kw)
 
 @total_ordering

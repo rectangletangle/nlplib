@@ -69,10 +69,10 @@ def _test_neural_network_structure (ut) :
         nn_a, nn_b, nn_c = session.access.all_neural_networks()
 
         ut.assert_equal(len(nn_a.elements), 6)
-        ut.assert_equal([io_node.seq for io_node in nn_a.inputs], [Word('a'), Word('b')])
+        ut.assert_equal([io_node.object for io_node in nn_a.inputs], [Word('a'), Word('b')])
 
         ut.assert_equal(len(nn_b.elements), 3)
-        ut.assert_equal([io_node.seq for io_node in nn_b.inputs], [Word('c')])
+        ut.assert_equal([io_node.object for io_node in nn_b.inputs], [Word('c')])
 
         ut.assert_equal(len(nn_c.elements), 0)
         ut.assert_equal(len(nn_c.inputs), 0)
@@ -90,7 +90,7 @@ def _test_neural_network_links (ut) :
         nn = session.access.neural_network('foo')
         word = session.access.word('bar')
 
-        nn.elements.extend([IONode(nn, seq=word, is_input=True), Node(nn)])
+        nn.elements.extend([IONode(nn, word, is_input=True), Node(nn)])
 
     with db as session :
         nn = session.access.neural_network('foo')
@@ -139,12 +139,35 @@ def _test_neural_network (ut) :
     with db as session :
         test_counts(session, 0, 0, 0)
 
+def _test_io_node (ut) :
+    # IO nodes should be able to handle sequences, <None>, or pickle-able Python objects as their object property.
+
+    db = Database()
+
+    with db as session :
+        session.add(Word('foo'))
+
+    with db as session :
+        nn = session.add(NeuralNetwork('bar'))
+        IONode(nn, None, True)
+        IONode(nn, '', True)
+        IONode(nn, 'baz', True)
+        IONode(nn, session.access.word('foo'), True)
+        IONode(nn, [1, 2, 'hello'], True)
+        IONode(nn, {'a' : 0, 'b' : 1}, True)
+
+    with db as session :
+        nn = session.access.neural_network('bar')
+        ut.assert_equal([io_node.object for io_node in nn.inputs],
+                        [None, '', 'baz', session.access.word('foo'), [1, 2, 'hello'], {'a' : 0, 'b' : 1}])
+
 def __test__ (ut) :
     _test_document(ut)
 
     _test_neural_network_structure(ut)
     _test_neural_network_links(ut)
     _test_neural_network(ut)
+    _test_io_node(ut)
 
 if __name__ == '__main__' :
     from nlplib.general.unittest import UnitTest

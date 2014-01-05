@@ -1,12 +1,12 @@
 ''' This module outlines how neural network related models are mapped to their respective SQLAlchemy tables. '''
 
 from sqlalchemy.orm.collections import attribute_mapped_collection
-from sqlalchemy.orm import relationship, column_property, backref
+from sqlalchemy.orm import relationship, column_property, backref, reconstructor
 from sqlalchemy.sql import and_, not_
 from sqlalchemy import Column, Boolean, Integer, Float, String, ForeignKey
 
 from nlplib.core.model.sqlalchemy_.base import ClassMapper
-from nlplib.core.model.neuralnetwork import NeuralNetwork, MLPNeuralNetwork, NeuralNetworkElement, Link, Node, IONode
+from nlplib.core.model.neuralnetwork import NeuralNetwork, Perceptron, NeuralNetworkElement, Link, Node, IONode
 
 class NeuralNetworkMapper (ClassMapper) :
     cls  = NeuralNetwork
@@ -38,9 +38,9 @@ class NeuralNetworkMapper (ClassMapper) :
                 'polymorphic_identity' : self.name,
                 'polymorphic_on' : self.table.c.type}
 
-class MLPNeuralNetworkMapper (ClassMapper) :
-    cls  = MLPNeuralNetwork
-    name = 'mlp_neural_network'
+class PerceptronMapper (ClassMapper) :
+    cls  = Perceptron
+    name = 'perceptron'
 
     def columns (self) :
         return (Column('id', Integer, ForeignKey('neural_network.id'), primary_key=True),
@@ -125,15 +125,21 @@ class IONodeMapper (ClassMapper) :
 
     def columns (self) :
         return (Column('id', Integer, ForeignKey('node.id'), primary_key=True),
-                Column('seq_id', Integer, ForeignKey('seq.id')),
+                Column('model_id', Integer, ForeignKey('seq.id')),
+                Column('serialized_object', String),
                 Column('is_input', Boolean, nullable=False))
 
     def mapper_kw (self) :
-        return {'properties' : {'seq'     : relationship(self.classes['seq']),
-                                '_seq_id' : self.table.c.seq_id,
-                                '_id'     : column_property(self.table.c.id,
-                                                            self.tables['neural_network_element'].c.id,
-                                                            self.tables['node'].c.id)},
+        return {'properties' : {'_model'             : relationship(self.classes['seq']),
+                                '_model_id'          : self.table.c.model_id,
+                                '_serialized_object' : self.table.c.serialized_object,
+                                '_id'                : column_property(self.table.c.id,
+                                                                       self.tables['neural_network_element'].c.id,
+                                                                       self.tables['node'].c.id)},
                 'inherits' : self.classes['node'],
                 'polymorphic_identity' : self.name}
+
+    def map (self, *args, **kw) :
+        reconstructor(self.cls._make_object)
+        super().map(*args, **kw)
 

@@ -7,7 +7,8 @@ from nlplib.general.iterate import paired, united
 from nlplib.core.base import Base
 from nlplib.core import exc
 
-# todo : implement __all__ list
+__all__ = ['NeuralNetworkConfigurationError', 'NeuralNetworkConfiguration', 'random_affinity', 'MakePerceptron',
+           'Static', 'StaticIO']
 
 class NeuralNetworkConfigurationError (exc.NLPLibError) :
     pass
@@ -36,7 +37,7 @@ def random_affinity (floor=-1.0, ceiling=1.0) :
     while True :
         yield uniform(floor, ceiling)
 
-class MakeMultilayerPerceptron (Base) :
+class MakePerceptron (Base) :
 
     def __init__ (self, neural_network, *config, affinity=random_affinity) :
         self.neural_network = neural_network
@@ -51,7 +52,7 @@ class MakeMultilayerPerceptron (Base) :
         return united(self._link_up(self._layers()))
 
     def _layers (self) :
-        yield [IONode(self.neural_network, seq, is_input=True) for seq in self.config[0]]
+        yield [IONode(self.neural_network, object, is_input=True) for object in self.config[0]]
 
         for config in self.config[1:-1] :
 
@@ -60,7 +61,7 @@ class MakeMultilayerPerceptron (Base) :
 
             yield [Node(self.neural_network) for _ in config]
 
-        yield [IONode(self.neural_network, seq, is_input=False) for seq in self.config[-1]]
+        yield [IONode(self.neural_network, object, is_input=False) for object in self.config[-1]]
 
     def _link_up (self, layers) :
         affinity = self.affinity()
@@ -87,14 +88,14 @@ class Static (_LayerConfiguration) :
         return self.size
 
 class StaticIO (_LayerConfiguration) :
-    def __init__ (self, seqs) :
-        self.seqs = list(seqs)
+    def __init__ (self, objects) :
+        self.objects = list(objects)
 
     def __iter__ (self) :
-        return iter(self.seqs)
+        return iter(self.objects)
 
     def __len__ (self) :
-        return len(self.seqs)
+        return len(self.objects)
 
 class Dynamic (_LayerConfiguration) :
     def __init__ (self, *args, **kw) :
@@ -104,7 +105,7 @@ class DynamicIO (_LayerConfiguration) :
     def __init__ (self, *args, **kw) :
         raise NotImplementedError
 
-def _test_make_mlp (ut) :
+def __test__ (ut) :
     from nlplib.core.model import Database, NeuralNetwork, Word
 
     db = Database()
@@ -115,19 +116,19 @@ def _test_make_mlp (ut) :
             session.add(Word(char))
 
     with db as session :
-        MakeMultilayerPerceptron(session.access.neural_network('foo'),
-                                 StaticIO(session.access.words('a b c')),
-                                 Static(10),
-                                 Static(4),
-                                 Static(5),
-                                 StaticIO(session.access.words('d e')))()
+        MakePerceptron(session.access.neural_network('foo'),
+                       StaticIO(session.access.words('a b c')),
+                       Static(10),
+                       Static(4),
+                       Static(5),
+                       StaticIO(session.access.words('d e')))()
 
     with db as session :
         nn = session.access.neural_network('foo')
 
-        ut.assert_equal(sorted(str(node.seq) for node in nn.inputs), ['a', 'b', 'c'])
+        ut.assert_equal(sorted(str(node.object) for node in nn.inputs), ['a', 'b', 'c'])
 
-        ut.assert_equal(sorted(str(node.seq) for node in nn.outputs), ['d', 'e'])
+        ut.assert_equal(sorted(str(node.object) for node in nn.outputs), ['d', 'e'])
 
         for layer, count in zip(nn, [3, 10, 4, 5, 2]) :
             ut.assert_equal(len(layer), count)
@@ -142,40 +143,9 @@ def _test_make_mlp (ut) :
             for node in layer :
                 ut.assert_equal(len(node.outputs), count)
 
-    ut.assert_raises(lambda : MakeMultilayerPerceptron(None, *[]), NeuralNetworkConfigurationError)
-    ut.assert_raises(lambda : MakeMultilayerPerceptron(None, *[None]), NeuralNetworkConfigurationError)
-    ut.assert_doesnt_raise(lambda : MakeMultilayerPerceptron(None, *[None, None]), NeuralNetworkConfigurationError)
-
-def __test__ (ut) :
-##    from nlplib.core.model import Database, MLPNeuralNetwork, Word
-
-    _test_make_mlp(ut)
-
-##    db = Database()
-##
-##    with db as session :
-##        for char in 'abcdef' :
-##            session.add(Word(char))
-##
-##        a, b, c, d, e, f = session.access.words('a b c d e f')
-##
-##        mlp = session.add(MLPNeuralNetwork('foo'))
-##
-##        config = NeuralNetworkConfiguration(StaticIO((a, b, c)),
-##                                            Static(3),
-##                                            Static(4),
-##                                            StaticIO((d, e, f)))
-##
-##        mlp._hidden_config = ' '.join(str(layer_config.size) for layer_config in config.hidden())
-##
-##
-##        mlp._affinities = ''
-##
-##        def config () :
-##            yield _NullConfiguration()
-##            for size in mlp._hidden_config :
-##                yield Static(int(size))
-##            yield _NullConfiguration()
+    ut.assert_raises(lambda : MakePerceptron(None, *[]), NeuralNetworkConfigurationError)
+    ut.assert_raises(lambda : MakePerceptron(None, *[None]), NeuralNetworkConfigurationError)
+    ut.assert_doesnt_raise(lambda : MakePerceptron(None, *[None, None]), NeuralNetworkConfigurationError)
 
 if __name__ == '__main__' :
     from nlplib.general.unittest import UnitTest

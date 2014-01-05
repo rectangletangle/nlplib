@@ -188,7 +188,7 @@ def abstract_test (ut, db_cls) :
         nn = session.access.nn('nn')
 
         def seqs (query, *args, **kw) :
-            return {node.seq for node in query(*args, **kw)}
+            return {node.object for node in query(*args, **kw)}
 
         word = session.access.word
 

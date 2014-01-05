@@ -11,9 +11,9 @@ from nlplib.core.base import Base
 from nlplib.general.iterate import paired
 from nlplib.general import composite
 
-__all__ = ['NumpyNeuralNetwork', 'Feedforward', 'Backpropagate']
+__all__ = ['NumPyNeuralNetwork', 'Feedforward', 'Backpropagate']
 
-class NumpyNeuralNetwork (Base) :
+class NumPyNeuralNetwork (Base) :
     ''' This class provides a way to represent a neural network as a series of NumPy arrays and matrices. '''
 
     def __init__ (self, neural_network, dtype=float) :
@@ -179,7 +179,7 @@ def __test__ (ut) :
     with db as session :
         nn = session.access.neural_network('foo')
 
-        nnn = NumpyNeuralNetwork(nn)
+        nnn = NumPyNeuralNetwork(nn)
 
         a, b, c, d, e, f = session.access.words('a b c d e f')
 
@@ -240,7 +240,7 @@ def __profile__ () :
 
         @timing
         def numpy_nn () :
-            nnn = NumpyNeuralNetwork(nn)
+            nnn = NumPyNeuralNetwork(nn)
             for _ in range(loops) :
                 Feedforward(nnn, input_)()
                 Backpropagate(nnn, input_, output)()

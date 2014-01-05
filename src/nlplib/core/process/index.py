@@ -71,7 +71,7 @@ class Indexed (SessionDependent) :
             Note : This does not remove the document from the database. To remove both the document and its indexes
             simply call <session.remove(document)>. '''
 
-        for object in document.__associated__(self.session) :
+        for object in document._associated(self.session) :
             self.session.remove(object)
 
     def clear (self) :

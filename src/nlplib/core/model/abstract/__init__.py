@@ -24,11 +24,8 @@ class Session (Base) :
         raise NotImplementedError
 
     def remove (self, object) :
-        if hasattr(object, '__associated__') :
-            try :
-                associated_objects = object.__associated__(self)
-            except TypeError :
-                associated_objects = object.__associated__()
+        if hasattr(object, '_associated') :
+            associated_objects = object._associated(self)
 
             for associated_object in associated_objects :
                 self._remove(associated_object)

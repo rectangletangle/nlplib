@@ -23,7 +23,19 @@ def _test_document (ut) :
         return max(session.access.all_documents(), key=lambda document : len(str(document)))
 
     with db as session :
-        ut.assert_equal(len(list(session.access.all_documents())), 3)
+        documents = list(session.access.all_documents())
+        ut.assert_equal(len(documents), 3)
+
+        ut.assert_true(session.access.word('a') in documents[0])
+        ut.assert_true(session.access.word('e') not in documents[0])
+
+        ut.assert_true(session.access.word('a') in documents[1])
+        ut.assert_true(session.access.word('e') in documents[1])
+        ut.assert_true(session.access.word('b') not in documents[1])
+
+        ut.assert_true(session.access.word('a') not in documents[2])
+        ut.assert_true(session.access.word('c') not in documents[2])
+        ut.assert_true(session.access.word('e') not in documents[2])
 
         test_counts(session, 8, 13)
         session.remove(longest(session))

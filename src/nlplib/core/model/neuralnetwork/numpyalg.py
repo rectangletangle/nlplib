@@ -222,8 +222,8 @@ def __profile__ () :
     from nlplib.general import timing
     db = Database()
 
-    size = 100
-    loops = 10
+    size = 10
+    loops = 100
 
     with db as session :
         words = [session.add(Word(str(i))) for i in range(size)]
@@ -258,6 +258,7 @@ def __profile__ () :
 if __name__ == '__main__' :
     from nlplib.general.unittest import UnitTest
     __test__(UnitTest())
+    print()
     __profile__()
 
 

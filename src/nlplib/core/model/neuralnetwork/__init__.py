@@ -17,12 +17,11 @@ class NeuralNetwork (Model) :
 
         self.name = name
 
+# todo : move to structure
+#############################################
         self.elements = []
         self.inputs   = []
         self.outputs  = []
-
-    def __repr__ (self, *args, **kw) :
-        return super().__repr__(self.name, *args, **kw)
 
     def _iter_nodes (self, from_nodes, direction) :
         from_nodes = set(from_nodes)
@@ -45,7 +44,7 @@ class NeuralNetwork (Model) :
     def __reversed__ (self) :
         return self._iter_nodes(self.outputs, lambda output_node : output_node.inputs)
 
-    def __associated__ (self) :
+    def _associated (self, session) :
         return self.elements
 
     def hidden (self, reverse=False) :
@@ -55,16 +54,13 @@ class NeuralNetwork (Model) :
     def paired (self, reverse=False) :
         layers = self if not reverse else reversed(self)
         return paired(layers)
+#############################################
 
-    def clear (self) :
-        ''' This deletes all of the network's nodes, leaving an empty network. '''
+    def __repr__ (self, *args, **kw) :
+        return super().__repr__(self.name, *args, **kw)
 
-        raise NotImplementedError # todo :
-
-    def forget (self) :
-        ''' This resets the network to an untrained state. '''
-
-        raise NotImplementedError # todo :
+    def feedforward (self, active_input_nodes, *args, **kw) : # todo : use input objects
+        return Feedforward(self, active_input_nodes, *args, **kw)()
 
     def backpropogate (self, active_input_nodes, correct_output_nodes, rate=0.2, activation_derivative=math.dtanh,
                        **kw) :
@@ -72,11 +68,49 @@ class NeuralNetwork (Model) :
 
         self.feedforward(active_input_nodes, **kw)
 
-        return Backpropagate(self, active_input_nodes, correct_output_nodes, rate=rate,
+        return Backpropagate(self, active_input_nodes, correct_output_nodes, rate=rate, # todo : use input, and correct objects
                              activation_derivative=activation_derivative)()
 
-    def feedforward (self, active_input_nodes, *args, **kw) :
-        return Feedforward(self, active_input_nodes, *args, **kw)()
+##    def __contains__ (self) :
+##        return bool() in object in inputs or outputs
+##
+##    def __iter__ (self) :
+##        return chain(self.inputs(), self.outputs())
+##
+##    def inputs (self) :
+##        return iter(input objects)
+##
+##    def outputs (self) :
+##        return iter(output objects)
+##
+##    def scores (self) :
+##        yield last scores from output layer
+##
+##    def predict (self) :
+##        return scores from structure.feedforward
+##
+##    def train (self) :
+##        return error from structure.backpropogate
+##
+##   def forget (self) :
+##        ''' This resets the network to an untrained state. '''
+##
+##       raise NotImplementedError # todo :
+
+class NNStructure :
+    def __init__ (self) :
+        numpy or nlplib
+
+    def feedforward (self) :
+        pass
+
+    def backpropogate (self) :
+        pass
+
+    def clear (self) :
+        ''' This deletes all of the network's nodes, leaving an empty network. '''
+
+        raise NotImplementedError # todo :
 
 class Perceptron (NeuralNetwork) :
     # todo : use numpy_
@@ -121,7 +155,7 @@ class Node (NeuralNetworkElement) :
     def __repr__ (self, *arg, **kw) :
         return super().__repr__(pretty_float(self.charge), *arg, **kw)
 
-    def __associated__ (self) :
+    def _associated (self, session) :
         yield from self.inputs.values()
         yield from self.outputs.values()
 

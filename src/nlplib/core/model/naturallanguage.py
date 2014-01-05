@@ -9,16 +9,17 @@ from nlplib.general import composite
 class Document (Model) :
     ''' A class for textual documents. '''
 
+    # todo : make take parsed config, similar to nn structure config
+
     def __init__ (self, string, word_count=None, title=None, url=None, created_on=None) :
         self.string = string
-        self.length = len(self.string)
 
         self.word_count = word_count
         self.title      = title
         self.url        = url
         self.created_on = created_on
 
-        self.seqs = []
+        self.seqs = [] # todo : make composite property from indexed
 
     def __repr__ (self, *args, **kw) :
         return super().__repr__(pretty_truncate(self.string.replace('\n', ' '), 35), *args, **kw)
@@ -29,15 +30,25 @@ class Document (Model) :
     def __getitem__ (self, index) :
         return self.string[index]
 
-    def __len__ (self) :
-        return self.length
+    def __contains__ (self, seq) :
+        return seq in self.seqs
 
-    def __associated__ (self, session) :
+    def __len__ (self) :
+        return len(self.string)
+
+    def _associated (self, session) :
         for index, seq in session.access.indexes(self) :
             seq.indexes.remove(index)
             if seq.count < 1 :
                 yield seq
             yield index
+
+## todo
+##    def words (self) :
+##        yield words from seqs
+##
+##    def grams (self) :
+##        yield grams from seqs
 
 @total_ordering
 class Seq (Model) :
@@ -92,6 +103,9 @@ class Seq (Model) :
     @composite(lambda self : tuple(self.indexes))
     def count (self) :
         return len(self.indexes)
+
+    def concordance (self) : # todo :
+        raise NotImplementedError
 
 class Gram (Seq) :
     ''' This class is used for representing n-grams of word strings. '''

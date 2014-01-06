@@ -4,7 +4,7 @@
 
 from itertools import chain
 
-__all__ = ['represented_nonliterally', 'represented_literally', 'pretty_truncate', 'pretty_float']
+__all__ = ['represented_nonliterally', 'represented_literally', 'pretty_truncate', 'pretty_float', 'pretty_ellipsis']
 
 def _representation_args_and_kw (*args, **kw) :
     # <sorted> is used to make the keyword argument order deterministic.
@@ -40,6 +40,11 @@ def pretty_float (value) :
     ''' Aesthetically pleasing floating point numbers. '''
 
     return _PrettyFloat(value)
+
+_PrettyEllipsis = type('_PrettyEllipsis', (), {'__repr__' : lambda self : '...'})
+
+def pretty_ellipsis () :
+    return _PrettyEllipsis()
 
 def __test__ (ut) :
     ut.assert_equal(pretty_truncate('hello world', 6, '...'), 'hello...')

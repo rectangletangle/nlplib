@@ -2,7 +2,7 @@
 
 import itertools
 
-from nlplib.core.model.neuralnetwork import abstract
+from nlplib.core.control.neuralnetwork import abstract
 
 __all__ = ['Feedforward', 'Backpropagate']
 
@@ -13,7 +13,7 @@ class Feedforward (abstract.Feedforward) :
 
         self._set_charges(self.neural_network.inputs, self.inactive)
 
-        self._set_charges(self.active_input_nodes, self.active)
+        self._set_charges(self.input_nodes, self.active)
 
         for layer in itertools.islice(self.neural_network, 1, None) :
             for node in layer :

@@ -111,17 +111,17 @@ class Access (SessionDependent) :
     def nn (self, *args, **kw) :
         return self.neural_network(*args, **kw)
 
-    def nodes_for_seqs (self, seqs, input=None) :
-        raise NotImplementedError
-
-    def input_nodes_for_seqs (self, *args, **kw) :
-        return self.nodes_for_seqs(*args, input=True, **kw)
-
-    def output_nodes_for_seqs (self, *args, **kw) :
-        return self.nodes_for_seqs(*args, input=False, **kw)
-
-    def link (self, neural_network, input_node, output_node) :
-        raise NotImplementedError
+##    def nodes_for_seqs (self, seqs, input=None) :
+##        raise NotImplementedError
+##
+##    def input_nodes_for_seqs (self, *args, **kw) :
+##        return self.nodes_for_seqs(*args, input=True, **kw)
+##
+##    def output_nodes_for_seqs (self, *args, **kw) :
+##        return self.nodes_for_seqs(*args, input=False, **kw)
+##
+##    def link (self, neural_network, input_node, output_node) :
+##        raise NotImplementedError
 
 def abstract_test (ut, db_cls) :
 
@@ -190,12 +190,12 @@ def abstract_test (ut, db_cls) :
         def seqs (query, *args, **kw) :
             return {node.object for node in query(*args, **kw)}
 
-        word = session.access.word
-
-        ut.assert_equal(seqs(session.access.input_nodes_for_seqs, nn, [None, word('0'), word('1')]),
-                        {Word('0')})
-        ut.assert_equal(seqs(session.access.output_nodes_for_seqs, nn, [None, word('0'), word('1')]),
-                        {None, Word('1')})
-        ut.assert_equal(seqs(session.access.nodes_for_seqs, nn, [None, word('0'), word('1')]),
-                        {None, Word('0'), Word('1')})
+##        word = session.access.word
+##
+##        ut.assert_equal(seqs(session.access.input_nodes_for_seqs, nn, [None, word('0'), word('1')]),
+##                        {Word('0')})
+##        ut.assert_equal(seqs(session.access.output_nodes_for_seqs, nn, [None, word('0'), word('1')]),
+##                        {None, Word('1')})
+##        ut.assert_equal(seqs(session.access.nodes_for_seqs, nn, [None, word('0'), word('1')]),
+##                        {None, Word('0'), Word('1')})
 

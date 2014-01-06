@@ -6,7 +6,7 @@ import itertools
 
 import numpy
 
-from nlplib.core.model.neuralnetwork import abstract
+from nlplib.core.control.neuralnetwork import abstract
 from nlplib.core.base import Base
 from nlplib.general.iterate import paired
 from nlplib.general import composite
@@ -30,7 +30,7 @@ class NumPyNeuralNetwork (Base) :
         self.affinities = structure[1::2]
 
     def _structure (self) :
-        for layer_index, layer in enumerate(self.neural_network) :
+        for layer_index, layer in enumerate(self.neural_network._structure) :
             charges = []
             charges_append = charges.append
 
@@ -97,7 +97,7 @@ class Feedforward (abstract.Feedforward) :
     def __call__ (self) :
         self.neural_network.inputs.fill(self.inactive)
 
-        active_indexes = [self.neural_network.node_indexes[node][1] for node in self.active_input_nodes]
+        active_indexes = [self.neural_network.node_indexes[node][1] for node in self.input_nodes]
         self.neural_network.inputs[active_indexes] = self.active
 
         dot = numpy.dot
@@ -129,7 +129,7 @@ class Backpropagate (abstract.Backpropagate) :
         activation_derivative = self._vectorized_activation_derivative
 
         correct = numpy.zeros(len(self.neural_network.outputs))
-        indexes = [self.neural_network.node_indexes[node][1] for node in self.correct_output_nodes]
+        indexes = [self.neural_network.node_indexes[node][1] for node in self.output_nodes]
 
         correct[indexes] = 1.0
 
@@ -168,7 +168,7 @@ def __test__ (ut) :
     db = Database()
 
     with db as session :
-        nn = session.add(NeuralNetwork('foo'))
+        nn = session.add(NeuralNetwork(name='foo'))
 
         for char in 'abcdef' :
             session.add(Word(char))
@@ -192,8 +192,8 @@ def __test__ (ut) :
         for _ in range(100) :
             for in_, out in training_patterns :
 
-                ins  = session.access.input_nodes_for_seqs(nn, in_)
-                outs = session.access.output_nodes_for_seqs(nn, out)
+                ins  = nn._structure.inputs_for_objects(in_)
+                outs = nn._structure.outputs_for_objects(out)
 
                 Feedforward(nnn, ins)()
                 errors.append(Backpropagate(nnn, ins, outs)())
@@ -209,56 +209,53 @@ def __test__ (ut) :
 
         for in_ in ins :
 
-            out = Feedforward(nnn, session.access.input_nodes_for_seqs(nn, in_))()
+            out = Feedforward(nnn, nn._structure.inputs_for_objects(in_))()
 
-            strs_and_scores = [(node.object, out[nnn.node_indexes[node][1]]) for node in nn.outputs]
+            strs_and_scores = [(node.object, out[nnn.node_indexes[node][1]]) for node in nn._structure.outputs]
 
             print(sorted(strs_and_scores, key=lambda both : both[1], reverse=True))
 
-def __profile__ () :
-    from nlplib.core.control.neuralnetwork.structure import MakePerceptron, StaticIO, Static
-    from nlplib.core.model.neuralnetwork import Feedforward as NLPLibFeedforward, Backpropagate as NLPLibBackpropagate
-    from nlplib.core.model import Database, NeuralNetwork, Word
-    from nlplib.general import timing
-    db = Database()
-
-    size = 10
-    loops = 100
-
-    with db as session :
-        words = [session.add(Word(str(i))) for i in range(size)]
-
-        nn = session.add(NeuralNetwork('nn'))
-
-        MakePerceptron(nn, StaticIO(words), Static(len(words)), StaticIO(words))()
-
-    with db as session :
-        nn  = session.access.neural_network('nn')
-
-        input_ = session.access.input_nodes_for_seqs(nn, session.access.words('0 5 9'))
-        output = session.access.output_nodes_for_seqs(nn, session.access.words('0 5 9'))
-
-        @timing
-        def numpy_nn () :
-            nnn = NumPyNeuralNetwork(nn)
-            for _ in range(loops) :
-                Feedforward(nnn, input_)()
-                Backpropagate(nnn, input_, output)()
-            nnn.update()
-
-        @timing
-        def nlplib_nn () :
-            for _ in range(loops) :
-                NLPLibFeedforward(nn, input_)()
-                NLPLibBackpropagate(nn, input_, output)()
-
-        numpy_nn()
-        nlplib_nn()
+##def __profile__ () :
+##    from nlplib.core.control.neuralnetwork.structure import MakePerceptron, StaticIO, Static
+##    from nlplib.core.model.neuralnetwork import Feedforward as NLPLibFeedforward, Backpropagate as NLPLibBackpropagate
+##    from nlplib.core.model import Database, NeuralNetwork, Word
+##    from nlplib.general import timing
+##    db = Database()
+##
+##    size = 10
+##    loops = 100
+##
+##    with db as session :
+##        words = [session.add(Word(str(i))) for i in range(size)]
+##
+##        nn = session.add(NeuralNetwork('nn'))
+##
+##        MakePerceptron(nn, StaticIO(words), Static(len(words)), StaticIO(words))()
+##
+##    with db as session :
+##        nn  = session.access.neural_network('nn')
+##
+##        input_ = session.access.input_nodes_for_seqs(nn, session.access.words('0 5 9'))
+##        output = session.access.output_nodes_for_seqs(nn, session.access.words('0 5 9'))
+##
+##        @timing
+##        def numpy_nn () :
+##            nnn = NumPyNeuralNetwork(nn)
+##            for _ in range(loops) :
+##                Feedforward(nnn, input_)()
+##                Backpropagate(nnn, input_, output)()
+##            nnn.update()
+##
+##        @timing
+##        def nlplib_nn () :
+##            for _ in range(loops) :
+##                NLPLibFeedforward(nn, input_)()
+##                NLPLibBackpropagate(nn, input_, output)()
+##
+##        numpy_nn()
+##        nlplib_nn()
 
 if __name__ == '__main__' :
     from nlplib.general.unittest import UnitTest
     __test__(UnitTest())
-    print()
-    __profile__()
-
 

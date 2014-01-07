@@ -4,7 +4,7 @@ from sqlalchemy.sql import or_
 from sqlalchemy import func
 
 from nlplib.core.model.abstract import access as abstract
-from nlplib.core.model import Document, Seq, Gram, Word, Index, NeuralNetwork, Node, IONode, Link
+from nlplib.core.model import Document, Seq, Gram, Word, Index, NeuralNetwork
 from nlplib.general.iterate import chunked
 
 __all__ = ['Access']
@@ -36,37 +36,6 @@ class Access (abstract.Access) :
 
     def neural_network (self, name) :
         return self.session._sqlalchemy_session.query(NeuralNetwork).filter_by(name=str(name)).first()
-
-##    def _ids_for_seqs (self, seqs) :
-##        for seq in seqs :
-##            try :
-##                yield seq._id
-##            except AttributeError :
-##                if seq is None :
-##                    yield seq
-##
-##    def nodes_for_seqs (self, neural_network, seqs, input=None) :
-##
-##        ids = set(self._ids_for_seqs(seqs))
-##
-##        if len(ids) :
-##            io_node_query = self.session._sqlalchemy_session.query(IONode)
-##
-##            input_filter = () if input is None else (IONode.is_input == input,)
-##
-##            return io_node_query.filter(IONode.neural_network == neural_network,
-##                                        or_(IONode._model_id.in_(ids), IONode._model_id == None),
-##                                        *input_filter).all()
-##        else :
-##            return []
-##
-##    def nodes (self, neural_network) :
-##        return self.session._sqlalchemy_session.query(Node).filter_by(neural_network=neural_network).all()
-##
-##    def link (self, neural_network, input_node, output_node) :
-##        return self.session._sqlalchemy_session.query(Link).filter_by(neural_network=neural_network,
-##                                                                      input_node=input_node,
-##                                                                      output_node=output_node).first()
 
 def __test__ (ut) :
     from nlplib.core.model.abstract.access import abstract_test

@@ -27,6 +27,7 @@ class ClassMapper (Base) :
         self.table = Table(self.name, self.metadata, *self.columns())
 
     def map (self) :
+        self.cls._sqlalchemy_table = self.table
         return mapper(self.cls, self.table, **self.mapper_kw())
 
     def columns (self) :

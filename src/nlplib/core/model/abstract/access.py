@@ -1,7 +1,7 @@
 
 
 from nlplib.core.process.token import split
-from nlplib.core.model import SessionDependent, Document, Seq, Gram, Word, Index, NeuralNetwork, IONode, Node, Link
+from nlplib.core.model import SessionDependent, Document, Seq, Gram, Word, Index, NeuralNetwork
 
 __all__ = ['Access', 'abstract_test']
 
@@ -53,15 +53,6 @@ class Access (SessionDependent) :
     def all_neural_networks (self, *args, **kw) :
         return self._all(NeuralNetwork, *args, **kw)
 
-    def all_nodes (self, *args, **kw) :
-        return self._all(Node, *args, **kw)
-
-    def all_io_nodes (self, *args, **kw) :
-        return self._all(IONode, *args, **kw)
-
-    def all_links (self, *args, **kw) :
-        return self._all(Link, *args, **kw)
-
     def _seq (self, cls, string) :
         raise NotImplementedError
 
@@ -111,18 +102,6 @@ class Access (SessionDependent) :
     def nn (self, *args, **kw) :
         return self.neural_network(*args, **kw)
 
-##    def nodes_for_seqs (self, seqs, input=None) :
-##        raise NotImplementedError
-##
-##    def input_nodes_for_seqs (self, *args, **kw) :
-##        return self.nodes_for_seqs(*args, input=True, **kw)
-##
-##    def output_nodes_for_seqs (self, *args, **kw) :
-##        return self.nodes_for_seqs(*args, input=False, **kw)
-##
-##    def link (self, neural_network, input_node, output_node) :
-##        raise NotImplementedError
-
 def abstract_test (ut, db_cls) :
 
     from nlplib.core.model import Seq, Gram, Word, Document
@@ -170,32 +149,4 @@ def abstract_test (ut, db_cls) :
         ut.assert_equal(sorted(session.access.matching(['a', 'b'])), mock((Seq, Gram, Word), 'ab'))
         ut.assert_equal(sorted(session.access.matching(['a', 'b'], Word)), mock((Word,), 'ab'))
         ut.assert_equal(sorted(session.access.matching([])), [])
-
-    db = db_cls()
-
-    with db as session :
-        session.add(NeuralNetwork('nn'))
-        for i in range(3) :
-            session.add(Word(str(i)))
-
-    with db as session :
-        nn = session.access.nn('nn')
-        for i, word in enumerate(session.access.all_words()) :
-            session.add(IONode(nn, word, i % 2 == 0))
-        session.add(IONode(nn, None, (i + 1) % 2 == 0))
-
-    with db as session :
-        nn = session.access.nn('nn')
-
-        def seqs (query, *args, **kw) :
-            return {node.object for node in query(*args, **kw)}
-
-##        word = session.access.word
-##
-##        ut.assert_equal(seqs(session.access.input_nodes_for_seqs, nn, [None, word('0'), word('1')]),
-##                        {Word('0')})
-##        ut.assert_equal(seqs(session.access.output_nodes_for_seqs, nn, [None, word('0'), word('1')]),
-##                        {None, Word('1')})
-##        ut.assert_equal(seqs(session.access.nodes_for_seqs, nn, [None, word('0'), word('1')]),
-##                        {None, Word('0'), Word('1')})
 

@@ -1,7 +1,7 @@
 ''' This tests the models. '''
 
 from nlplib.core.process.index import Indexed
-from nlplib.core.model import Database, Document, Word, NeuralNetwork, Link, Node, IONode, Seq
+from nlplib.core.model import Database, Document, Word, NeuralNetwork, Layer, NeuralNetworkIO
 
 def _test_document (ut) :
     # Tests the addition and removal of documents and associated objects from the database.
@@ -50,143 +50,9 @@ def _test_document (ut) :
     with db as session :
         test_counts(session, 0, 0)
 
-##def _test_neural_network_links (ut) :
-##
-##    db = Database()
-##
-##    with db as session :
-##        session.add(NeuralNetwork(name='a'))
-##        session.add(NeuralNetwork(name='b'))
-##        session.add(NeuralNetwork(name='c'))
-##
-##        session.add(Word('a'))
-##        session.add(Word('b'))
-##        session.add(Word('c'))
-##
-##    with db as session :
-##        nn_a, nn_b, nn_c = session.access.all_neural_networks()
-##
-##        def make_nn (nn, word_string, affinity) :
-##
-##            node    = session.add(Node(nn._structure))
-##            io_node = session.add(IONode(nn._structure, session.access.word(word_string), is_input=True))
-##
-##            session.add(Link(nn._structure, node, io_node, affinity))
-##
-##        make_nn(nn_a, 'a', 0)
-##        make_nn(nn_a, 'b', 1)
-##        make_nn(nn_b, 'c', 2)
-##
-##    with db as session :
-##        nn_a, nn_b, nn_c = session.access.all_neural_networks()
-##
-##        ut.assert_equal(len(nn_a._structure.elements), 6)
-##        ut.assert_equal([io_node.object for io_node in nn_a._structure.inputs], [Word('a'), Word('b')])
-##
-##        ut.assert_equal(len(nn_b._structure.elements), 3)
-##        ut.assert_equal([io_node.object for io_node in nn_b._structure.inputs], [Word('c')])
-##
-##        ut.assert_equal(len(nn_c._structure.elements), 0)
-##        ut.assert_equal(len(nn_c._structure.inputs), 0)
-##        ut.assert_equal(len(nn_c._structure.outputs), 0)
-
-def _test_neural_network_structure (ut) :
-    db = Database()
-
-    with db as session :
-        for char in 'abcde' :
-            session.add(Word(char))
-
-    with db as session :
-        config = (session.access.words('a b c'), 10, 4, 5, session.access.words('d e'))
-
-        nn = NeuralNetwork(*config, name='foo')
-
-        structure = nn._structure
-
-        ut.assert_equal(sorted(str(node.object) for node in structure.inputs), ['a', 'b', 'c'])
-
-        ut.assert_equal(sorted(str(node.object) for node in structure.outputs), ['d', 'e'])
-
-        for layer, count in zip(structure, [3, 10, 4, 5, 2]) :
-            ut.assert_equal(len(layer), count)
-
-        ut.assert_equal(len(list(structure)), 5)
-
-        for layer, count in zip(structure, [0, 3, 10, 4, 5]) :
-            for node in layer :
-                ut.assert_equal(len([node for node in node.inputs if node is not None]), count)
-
-        for layer, count in zip(structure, [10, 4, 5, 2, 0]) :
-            for node in layer :
-                ut.assert_equal(len([node for node in node.outputs if node is not None]), count)
-
-    ut.assert_raises(lambda : NeuralNetworkConfiguration(*[]), NeuralNetworkConfigurationError)
-    ut.assert_raises(lambda : NeuralNetworkConfiguration(*[None]), NeuralNetworkConfigurationError)
-    ut.assert_doesnt_raise(lambda : NeuralNetworkConfiguration(*[None, None]), NeuralNetworkConfigurationError)
-
-def _test_neural_network_links (ut) :
-
-    db = Database()
-
-    with db as session :
-        session.add(NeuralNetwork(name='foo'))
-        session.add(Word('bar'))
-
-    with db as session :
-        nn = session.access.neural_network('foo')
-        word = session.access.word('bar')
-
-        nn._structure.elements.extend([IONode(nn._structure, word, is_input=True), Node(nn._structure)])
-
-    with db as session :
-        nn = session.access.neural_network('foo')
-        io_node, node = nn._structure.elements
-
-        link = session.add(Link(nn._structure, io_node, node))
-
-        ut.assert_true(io_node.outputs[node] is node.inputs[io_node] is link)
-        ut.assert_equal(io_node.inputs, {})
-        ut.assert_equal(node.outputs, {})
-        ut.assert_equal(io_node.outputs, {node : link})
-        ut.assert_equal(node.inputs, {io_node : link})
-
-def _test_neural_network (ut) :
-    # Tests the addition and removal of neural networks and associated objects from the database.
-
-    db = Database()
-
-    with db as session :
-        for name in ['a', 'b'] :
-            nn = session.add(NeuralNetwork(name=name))
-            Link(nn._structure, IONode(nn._structure, None, True), Node(nn._structure, None))
-
-    def test_counts (session, io, node, link) :
-        ut.assert_equal(len(list(session.access.all_io_nodes())), io)
-        ut.assert_equal(len(list(session.access.all_nodes())), node)
-        ut.assert_equal(len(list(session.access.all_links())), link)
-
-    with db as session :
-        test_counts(session, 2, 4, 2)
-        session.remove(session.access.nn('a'))
-
-    with db as session :
-        test_counts(session, 1, 2, 1)
-
-        all_neural_networks = list(session.access.all_neural_networks())
-
-        ut.assert_equal(len(all_neural_networks), 1)
-        ut.assert_equal(all_neural_networks[0].name, 'b')
-
-        session.remove(session.access.nn('b'))
-
-        test_counts(session, 0, 0, 0)
-
-    with db as session :
-        test_counts(session, 0, 0, 0)
-
-def _test_io_node (ut) :
-    # IO nodes should be able to handle sequences, <None>, or pickle-able Python objects as their object property.
+def _test_neural_network_io (ut) :
+    # Neural networks IO objects should be able to handle sequences, <None>, or pickle-able Python objects as their
+    # object property.
 
     db = Database()
 
@@ -195,25 +61,55 @@ def _test_io_node (ut) :
 
     with db as session :
         structure = session.add(NeuralNetwork(name='bar'))._structure
-        IONode(structure, None, True)
-        IONode(structure, '', True)
-        IONode(structure, 'baz', True)
-        IONode(structure, session.access.word('foo'), True)
-        IONode(structure, [1, 2, 'hello'], True)
-        IONode(structure, {'a' : 0, 'b' : 1}, True)
+
+        layer = Layer(structure)
+
+        NeuralNetworkIO(layer, None)
+        NeuralNetworkIO(layer, '')
+        NeuralNetworkIO(layer, 'baz')
+        NeuralNetworkIO(layer, session.access.word('foo'))
+        NeuralNetworkIO(layer, [1, 2, 'hello'])
+        NeuralNetworkIO(layer, {'a' : 0, 'b' : 1})
 
     with db as session :
         nn = session.access.neural_network('bar')
-        ut.assert_equal([io_node.object for io_node in nn._structure.inputs],
+        ut.assert_equal([io.object for io in nn._structure.input().objects],
                         [None, '', 'baz', session.access.word('foo'), [1, 2, 'hello'], {'a' : 0, 'b' : 1}])
 
 def __test__ (ut) :
     _test_document(ut)
+    _test_neural_network_io(ut)
 
-    _test_neural_network_structure(ut)
-    _test_neural_network_links(ut)
-    #_test_neural_network(ut) todo : not passing
-    _test_io_node(ut)
+    from nlplib.core.model import Database, Layer
+
+    from sqlalchemy import inspect
+    from sqlalchemy import BLOB
+
+
+    from nlplib.core.model.sqlalchemy_.map import default_mapped
+    from nlplib.general import timing
+
+    size = 10000
+
+    db = Database()
+    with db as session :
+        session.add(NeuralNetwork(list(range(size)), list(range(6)), list(range(size)), name='foo'))
+
+    from pprint import pprint
+
+    @timing
+    @db
+    def foo (session) :
+        nn = session.access.nn('foo')
+        for input, connection, output in nn._structure :
+            input.values
+            connection.weights
+            output.values
+
+    foo()
+
+##    with db as session :
+##        nn = session.access.nn('foo')
 
 if __name__ == '__main__' :
     from nlplib.general.unittest import UnitTest

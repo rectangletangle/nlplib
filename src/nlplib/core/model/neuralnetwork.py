@@ -1,7 +1,6 @@
 
 
 import itertools
-import pickle
 import random
 
 from nlplib.core.control.neuralnetwork.alg import Feedforward, Backpropagate
@@ -15,16 +14,13 @@ from nlplib.general.represent import pretty_float
 from nlplib.general.iterate import truncated, paired, united
 from nlplib.general import math
 
-__all__ = ['NeuralNetwork', 'Link', 'Node', 'IONode']
+__all__ = ['NeuralNetwork', 'Layer', 'Connection', 'NeuralNetworkIO']
 
 class NeuralNetwork (Model) :
     def __init__ (self, *config, name=None, **kw) :
         self.name = name
 
         self._structure = Structure(config, **kw)
-
-    def _associated (self, session) :
-        return [self._structure]
 
     def __repr__ (self, *args, **kw) :
         if self.name is not None :
@@ -68,6 +64,9 @@ class NeuralNetwork (Model) :
 
         raise NotImplementedError # todo :
 
+    def _associated (self, session) :
+        return [self._structure]
+
 class NeuralNetworkConfigurationError (exc.NLPLibError) :
     pass
 
@@ -98,76 +97,74 @@ class NeuralNetworkConfiguration (Base) :
     def hidden (self) :
         return self._layer_configurations[1:-1]
 
-def random_affinity (floor=-1.0, ceiling=1.0) :
-    ''' This can be used to initialize the links in the neural network with pseudorandom affinities (weights). '''
+def random_weights (floor=-1.0, ceiling=1.0) :
+    ''' This can be used to initialize the connections in the neural network with pseudorandom weights. '''
 
     while True :
         yield random.uniform(floor, ceiling)
 
-class MakeMultiLayer (Base) :
+class MakeStructure (Base) :
 
-    def __init__ (self, structure, config, affinity=random_affinity) :
+    def __init__ (self, structure, config, weights=random_weights) :
         self.structure = structure
         self.config = config
-        self.affinity = affinity
+        self.weights = weights
 
     def __call__ (self) :
-        for layers in self._link_up(self._layers()) :
-            pass
+        self._connect(self._layers())
 
-    def __iter__ (self) :
-        return united(self._link_up(self._layers()))
+    def _make_layer (self, config) :
+        layer = Layer(self.structure)
+
+        if isinstance(config, StaticIO) :
+            objects = [NeuralNetworkIO(layer, object) for object in config]
+            layer.objects.extend(objects)
+            size = len(objects)
+        else :
+            size = len(list(config))
+
+        layer.values = (0.0,) * size
+        layer.errors = (0.0,) * size
+
+        return layer
 
     def _layers (self) :
-        yield [IONode(self.structure, object, is_input=True) for object in self.config[0]]
+        yield self._make_layer(self.config[0])
 
         for config in self.config[1:-1] :
-            yield [Node(self.structure) for _ in config]
+            yield self._make_layer(config)
 
-        yield [IONode(self.structure, object, is_input=False) for object in self.config[-1]]
+        yield self._make_layer(self.config[-1])
 
-    def _link_up (self, layers) :
-        affinity = self.affinity()
+    def _connect (self, layers) :
+        weights = self.weights()
 
         for input_layer, output_layer in paired(layers) :
-            for input_node in input_layer :
-                for output_node in output_layer :
-                    link = Link(self.structure, input_node, output_node, affinity=next(affinity, 0.0))
 
-                    input_node.outputs[output_node] = link
-                    output_node.inputs[input_node]  = link
+            connection = Connection(self.structure)
 
-            yield (input_layer, output_layer)
+            width  = len(input_layer)
+            height = len(output_layer)
 
-class Structure :
+            connection.weights = tuple(tuple(next(weights, 0.0) for _ in range(width))
+                                       for _ in range(height))
+
+class Structure (Model) :
     def __init__ (self, config, **kw) :
         self.elements = []
-        self.inputs   = []
-        self.outputs  = []
+
+        self.layers      = []
+        self.connections = []
 
         if len(config) :
-            MakeMultiLayer(self, NeuralNetworkConfiguration(*config, **kw))()
-
-    def _iter_nodes (self, from_nodes, direction) :
-        from_nodes = set(from_nodes)
-        yield {node for node in from_nodes if node is not None}
-
-        while True :
-            to_nodes = {to_node
-                        for from_node in from_nodes if from_node is not None
-                        for to_node in direction(from_node) if to_node is not None}
-
-            if not len(to_nodes) :
-                break
-            else :
-                yield set(to_nodes)
-                from_nodes = to_nodes
+            MakeStructure(self, NeuralNetworkConfiguration(*config, **kw))()
 
     def __iter__ (self) :
-        return self._iter_nodes(self.inputs, lambda input_node : input_node.outputs)
+        for (input_layer, output_layer), connection in zip(paired(self.layers), self.connections) :
+            yield (input_layer, connection, output_layer)
 
     def __reversed__ (self) :
-        return self._iter_nodes(self.outputs, lambda output_node : output_node.inputs)
+        return reversed(list(self))
 
     def _associated (self, session) :
         return self.elements
@@ -183,6 +180,12 @@ class Structure :
         for node in self.outputs :
             if node.object in objects :
                 yield node
+
+    def input (self) :
+        return self.layers[0]
+
+    def output (self) :
+        return self.layers[-1]
 
     def hidden (self, reverse=False) :
         layers = self if not reverse else reversed(self)
@@ -218,81 +221,44 @@ class Layer (Element) :
     def __init__ (self, structure) :
         super().__init__(structure)
 
-        self._charges_string = ''
-        self._errors_string  = ''
+        self.values = ()
+        self.errors = ()
 
-    @property
-    def charges () :
-        for charge in self._charges.split() :
-            yield float(charge)
+        self.objects = []
 
-    @property
-    def errors () :
-        for error in self._errors.split() :
-            yield float(error)
+    def __repr__ (self, *args, **kw) :
+        return super().__repr__(len(self.values), *args, **kw)
 
     def __iter__ (self) :
-        return iter(self.charges)
+        return iter(self.values)
 
     def __len__ (self) :
-        return len(self.charges)
+        return len(self.values)
 
-class Link (Element) :
-    ''' This class is used for linking together neural network nodes. The affinity attribute denotes how strong the
-        connection between the nodes is. '''
-
-    def __init__ (self, structure, input_node, output_node, affinity=1.0) :
-
+class Connection (Element) :
+    def __init__ (self, structure) :
         super().__init__(structure)
 
-        self.input_node  = input_node
-        self.output_node = output_node
+        self.weights = ()
 
-        self.affinity = affinity
+    def __repr__ (self, *args, **kw) :
+        try :
+            width = len(self.weights[0])
+        except IndexError :
+            width = 0
 
-    def __repr__ (self, *arg, **kw) :
-        return super().__repr__(pretty_float(self.affinity), self.input_node, self.output_node, *arg, **kw)
+        height = len(self.weights)
 
-class Node (Element) :
-    ''' A class for neural network nodes. The charge attribute designates how "excited" the node is, at a given
-        moment. '''
+        dimensions = type('Dimensions', (), {'__repr__' : lambda self : '{}x{}'.format(width, height)})()
 
-    def __init__ (self, structure, charge=0.0, error=None) :
+        return super().__repr__(dimensions, *args, **kw)
 
-        super().__init__(structure)
+class NeuralNetworkIO (Element) :
+    def __init__ (self, layer, object) :
+        super().__init__(layer.structure)
 
-        self.charge = charge
-        self.error  = error
-
-        self.inputs  = {}
-        self.outputs = {}
-
-    def __repr__ (self, *arg, **kw) :
-        return super().__repr__(pretty_float(self.charge), *arg, **kw)
-
-    def _associated (self, session) :
-        yield from self.inputs.values()
-        yield from self.outputs.values()
-
-class IONode (Node) :
-    ''' This is a class for input and output neural network nodes. These are the nodes on the edges of the network
-        which communicate with the outside world. Nodes store their meaning with their object property. Although the
-        object property is normally used for holding natural language sequences (e.g. words, grams), <None> or any
-        other pickle-able Python object can be used. '''
-
-    def __init__ (self, structure, object, is_input, other=None, *args, **kw) :
-
-        super().__init__(structure, *args, **kw)
-
+        self.layer = layer
         self.object = object
-
-        self.is_input = bool(is_input)
-
-    def _serialize (self, *args, **kw) :
-        return pickle.dumps(*args, **kw)
-
-    def _deserialize (self, *args, **kw) :
-        return pickle.loads(*args, **kw)
 
     def __repr__ (self, *arg, **kw) :
         return super().__repr__(self.object, *arg, **kw)
@@ -301,7 +267,7 @@ class IONode (Node) :
         if self._model is not None :
             self._object = self._model
         else :
-            self._object = self._deserialize(self._serialized_object)
+            self._object = self._pickled
 
     @property
     def object (self) :
@@ -310,12 +276,12 @@ class IONode (Node) :
     @object.setter
     def object (self, value) :
         self._model = None
-        self._serialized_object = None
+        self._pickled = None
 
         if isinstance(value, Seq) : # todo : make handle all models not just Seq
             self._model = value
         else :
-            self._serialized_object = self._serialize(value)
+            self._pickled = value
 
         self._object = value
 

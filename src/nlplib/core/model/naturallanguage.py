@@ -5,6 +5,23 @@ from functools import total_ordering
 from nlplib.core.model.base import Model
 from nlplib.general.represent import pretty_truncate, represented_literally
 from nlplib.general import composite
+from nlplib.core.base import Base
+
+def _SeqsMixin (Base) : # todo :
+    def seqs_only (self) :
+        for seq in self.seqs :
+            if seq._is_seq :
+                yield seq
+
+    def words (self) :
+        for word in self.seqs :
+            if word._is_word :
+                yield word
+
+    def grams (self) :
+        for gram in self.seqs :
+            if gram._is_gram :
+                yield gram
 
 class Document (Model) :
     ''' A class for textual documents. '''
@@ -43,17 +60,14 @@ class Document (Model) :
                 yield seq
             yield index
 
-## todo
-##    def words (self) :
-##        yield words from seqs
-##
-##    def grams (self) :
-##        yield grams from seqs
-
 @total_ordering
 class Seq (Model) :
     ''' This acts as a sequence of characters, similar to a string. The word and gram classes are built on top of
         this. '''
+
+    _is_seq  = True
+    _is_gram = False
+    _is_word = False
 
     def __init__ (self, string) :
         self.string = string
@@ -100,15 +114,26 @@ class Seq (Model) :
     def __hash__ (self) :
         return hash((self.__class__, self.string))
 
-    @composite(lambda self : tuple(self.indexes))
+    @composite(lambda self : (len(self.indexes),))
     def count (self) :
         return len(self.indexes)
 
     def concordance (self) : # todo :
         raise NotImplementedError
 
+class Word (Seq) :
+    ''' This class is used for representing words. Currently homographic words are not supported. '''
+
+    _is_seq  = False
+    _is_gram = False
+    _is_word = True
+
 class Gram (Seq) :
     ''' This class is used for representing n-grams of word strings. '''
+
+    _is_seq  = False
+    _is_gram = True
+    _is_word = False
 
     def __init__ (self, gram_tuple_or_string, *args, **kw) :
 
@@ -142,11 +167,6 @@ class Gram (Seq) :
     @composite(lambda self : (self.string,))
     def seqs (self) :
         return tuple(self.string.split())
-
-class Word (Seq) :
-    ''' This class is used for representing words. Currently homographic words are not supported. '''
-
-    pass
 
 _seq_cls_order = (Seq, Word, Gram)
 

@@ -1,9 +1,17 @@
 
+import random
+
 from nlplib.general.represent import pretty_ellipsis
 from nlplib.core.base import Base
 
 ##__all__ = ['NeuralNetworkConfigurationError', 'NeuralNetworkConfiguration', 'random_affinity', 'MakeMultiLayer',
 ##           'Static', 'StaticIO']
+
+def random_weights (floor=-1.0, ceiling=1.0) :
+    ''' This can be used to initialize the connections in the neural network with pseudorandom weights. '''
+
+    while True :
+        yield random.uniform(floor, ceiling)
 
 class _LayerConfiguration (Base) :
     pass

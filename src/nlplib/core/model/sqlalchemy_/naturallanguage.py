@@ -40,11 +40,11 @@ class SeqMapper (ClassMapper) :
                 UniqueConstraint('type', 'string'))
 
     def mapper_kw (self) :
-        return {'properties' : {'indexes' : relationship(self.classes['index']),
-                                '_id'     : self.table.c.id,
-                                '_type'   : self.table.c.type},
-                'polymorphic_identity' : self.name,
-                'polymorphic_on' : self.table.c.type}
+        return {'polymorphic_identity' : self.name,
+                'polymorphic_on' : self.table.c.type,
+                'properties' : {'_id'     : self.table.c.id,
+                                '_type'   : self.table.c.type,
+                                'indexes' : relationship(self.classes['index'])}}
 
 class GramMapper (ClassMapper) :
     cls  = Gram

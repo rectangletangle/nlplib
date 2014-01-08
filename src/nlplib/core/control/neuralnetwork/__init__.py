@@ -1,117 +1,134 @@
+''' This module contains abstract base classes for the various neural network algorithms. '''
 
 
-import itertools
-
-from nlplib.core.control.score import Score
-from nlplib.core.model import SessionDependent
+from nlplib.core.base import Base
 from nlplib.general import math
 
-__all__ = ['Prediction', 'Train']
+__all__ = ['Feedforward', 'Backpropagate']
 
-class Prediction (SessionDependent) :
-    def __init__ (self, session, neural_network, seqs, *args, **kw) :
-        super().__init__(session)
-        self.neural_network = neural_network
-        self.seqs = seqs
+class Feedforward (Base) :
+    def __init__ (self, structure, input_indexes, active=1.0, inactive=0.0, activation=math.tanh) :
 
-        self._args = args
-        self._kw = kw
+        self.structure = structure
 
-    def __iter__ (self) :
-        active_input_nodes = list(self.session.access.nodes_for_seqs(self.neural_network, self.seqs))
-        for ouput_node in self.neural_network.feedforward(active_input_nodes, *self._args, **self._kw) :
-             yield Score(object=ouput_node.object, score=ouput_node.charge)
+        self.input_indexes = input_indexes
 
-class Train (SessionDependent) :
-    def __init__ (self, session, neural_network, patterns, iterations=100, rate=0.2, *args, **kw) :
-        super().__init__(session)
-        self.neural_network = neural_network
-        self.patterns = patterns
-        self.iterations = iterations
-        self.rate = rate
+        self.active   = active
+        self.inactive = inactive
 
-        self._args = args
-        self._kw = kw
-
-    def __iter__ (self) :
-
-        if callable(self.rate) :
-            rate = self.rate
-        else :
-            rate = lambda i : self.rate
-
-        nodes = list(self._input_and_output_nodes())
-
-        for i in range(self.iterations) :
-            for active_input_nodes, correct_output_nodes in nodes :
-                error = self.neural_network.backpropogate(active_input_nodes, correct_output_nodes, rate=rate(i),
-                                                          *self._args, **self._kw)
-                yield (error, active_input_nodes, correct_output_nodes)
+        self.activation = activation
 
     def __call__ (self) :
-        return list(self)
 
-    def _input_and_output_nodes (self) :
-        for input_seqs, output_seqs in self.patterns :
-            yield (self.session.access.input_nodes_for_seqs(self.neural_network, input_seqs),
-                   self.session.access.output_nodes_for_seqs(self.neural_network, output_seqs))
+        self._reset_input_charges()
+
+        for input_layer, connection, output_layer in self.structure :
+            output_layer._charges = tuple(self.activation(charge)
+                                          for charge in self._excitement(connection, input_layer))
+        return output_layer
+
+    def _excitement (self, connection, charges) :
+        for weights in connection :
+            yield sum(weight * charge for weight, charge in zip(weights, charges))
+
+    def _reset_input_charges (self) :
+        inputs = self.structure.inputs()
+        inputs.fill(self.inactive)
+        inputs.set((index, self.active) for index in self.input_indexes)
+
+class Backpropagate (Base) :
+    ''' A pure Python implementation of the backpropagation neural network training algorithm. '''
+
+    def __init__ (self, structure, input_indexes, output_indexes, rate=0.2, activation_derivative=math.dtanh) :
+
+        self.structure = structure
+
+        self.input_indexes  = input_indexes
+        self.output_indexes = output_indexes
+
+        self.rate = rate
+        self.activation_derivative = activation_derivative
+
+    def __call__ (self) :
+        differences = self._output_errors()
+        self._hidden_errors()
+        self._update_connection_weights()
+
+        total_error = sum(0.5 * difference ** 2 for difference in differences)
+        return total_error
+
+    def _correct_output_charges (self) :
+        correct = [0.0] * len(self.structure.outputs())
+
+        for index in self.output_indexes :
+            correct[index] = 1.0
+
+        return correct
+
+    def _output_errors (self) :
+
+        correct = self._correct_output_charges()
+
+        outputs = self.structure.outputs()
+
+        differences = [correct_charge - actual_charge for correct_charge, actual_charge in zip(correct, outputs)]
+
+        outputs._errors = tuple(self.activation_derivative(charge) * difference
+                                for charge, difference in zip(outputs, differences))
+
+        return differences
+
+    def _excitement_error (self, connection, errors) :
+        transposed = zip(*connection.weights)
+        for weights in transposed :
+            yield sum(weight * charge for weight, charge in zip(weights, errors))
+
+    def _hidden_errors (self) :
+        for input_layer, connection, output_layer in reversed(list(self.structure)[1:]) :
+
+            errors = self._excitement_error(connection, output_layer.errors)
+
+            input_layer._errors = tuple(self.activation_derivative(charge) * error
+                                        for charge, error in zip(input_layer.charges, errors))
+
+    def _update_connection_weights (self) :
+
+        for input_layer, connection, output_layer in reversed(self.structure) :
+
+            corrections = ((self.rate * charge * error for charge in input_layer.charges)
+                            for error in output_layer.errors)
+
+            connection._weights = tuple(tuple(weight + correction_weight
+                                              for weight, correction_weight in zip(weights, correction_weights))
+                                        for weights, correction_weights in zip(connection, corrections))
 
 def __test__ (ut) :
-    from nlplib.core.control.neuralnetwork.structure import MakePerceptron, StaticIO, Static
-    from nlplib.core.model import Database, NeuralNetwork, Word
+    from nlplib.core.model import NeuralNetwork
 
-    db = Database()
+    nn = NeuralNetwork('abc', 3, 'def')
 
-    with db as session :
-        nn = session.add(NeuralNetwork('foo'))
+    def train (inputs, outputs) :
 
-        for char in 'abcdef' :
-            session.add(Word(char))
+        Feedforward(nn._structure, nn._structure.input_indexes_for_objects(inputs))()
 
-        def affinity () :
-            # This is used in place of random affinities, in order to maintain determinism.
+        return Backpropagate(nn._structure, nn._structure.input_indexes_for_objects(inputs),
+                             nn._structure.output_indexes_for_objects(outputs))()
 
-            while True :
-                for i in range(10) :
-                    u = i / 10
-                    yield u if i % 2 == 0 else u * -1
+    training_patterns = [('ab', 'f'),
+                         ('ac', 'f'),
+                         ('b',  'd'),
+                         ('c',  'e')]
 
-        MakePerceptron(nn,
-                       StaticIO(session.access.words('a b c')),
-                       Static(10),
-                       StaticIO(session.access.words('d e f')),
-                       affinity=affinity)()
+    from nlplib.exterior.util import plot
 
-    with db as session :
-        nn = session.access.neural_network('foo')
+    for _ in range(20) :
+        for inputs, outputs in training_patterns :
+            train(inputs, outputs)
 
-        a, b, c, d, e, f = session.access.words('a b c d e f')
+    for inputs in ['a', 'b', 'c', 'ab', 'ac', 'bc'] :
+        output_layer = Feedforward(nn._structure, nn._structure.input_indexes_for_objects(inputs))()
 
-        training_patterns = [( (a, b), (f,) ),
-                             ( (a, c), (f,) ),
-                             ( (b,),   (d,) ),
-                             ( (c,),   (e,) )]
-
-        avg_error = math.avg(round(error, 6) for error, *nodes in Train(session, nn, training_patterns, 20, 0.2))
-
-        ut.assert_equal(avg_error, 0.4993055999999999)
-
-        # We never directly trained it for the input combination (b, c); however, it throws out a reasonable guess by
-        # giving e and d a similar score, and giving f a low score.
-        ins = [(a,), (b,), (c,), (a, b), (a, c), (b, c)]
-
-        outs = [[ ('f', 0.927115), ('d', 0.082929), ('e', -0.580871) ],
-                [ ('d', 0.640232), ('e', 0.179109), ('f', 0.068058)  ],
-                [ ('e', 0.691237), ('d', 0.043618), ('f', -0.042884) ],
-                [ ('f', 0.854911), ('d', 0.463793), ('e', -0.296235) ],
-                [ ('f', 0.85542),  ('d', 0.06778),  ('e', 0.011365)  ],
-                [ ('e', 0.669032), ('d', 0.640655), ('f', -0.079214) ]]
-
-        for in_, out in zip(ins, outs) :
-            strs_and_scores = [(str(word), round(score, 6)) for word, score in Prediction(session, nn, in_)]
-
-            ut.assert_equal(sorted(strs_and_scores, key=lambda both : both[1], reverse=True),
-                            out)
+        print(sorted((item for item in zip(output_layer.charges, output_layer.objects())), reverse=True))
 
 if __name__ == '__main__' :
     from nlplib.general.unittest import UnitTest

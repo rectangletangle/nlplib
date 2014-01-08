@@ -1,5 +1,8 @@
 ''' This tests the models. '''
 
+
+import itertools
+
 from nlplib.core.process.index import Indexed
 from nlplib.core.model import Database, Document, Word, NeuralNetwork, Layer, NeuralNetworkIO
 
@@ -64,21 +67,63 @@ def _test_neural_network_io (ut) :
 
         layer = Layer(structure)
 
-        NeuralNetworkIO(layer, None)
-        NeuralNetworkIO(layer, '')
-        NeuralNetworkIO(layer, 'baz')
-        NeuralNetworkIO(layer, session.access.word('foo'))
-        NeuralNetworkIO(layer, [1, 2, 'hello'])
-        NeuralNetworkIO(layer, {'a' : 0, 'b' : 1})
+        append = layer.io.append
+        append(NeuralNetworkIO(structure, None))
+        append(NeuralNetworkIO(structure, ''))
+        append(NeuralNetworkIO(structure, 'baz'))
+        append(NeuralNetworkIO(structure, session.access.word('foo')))
+        append(NeuralNetworkIO(structure, [1, 2, 'hello']))
+        append(NeuralNetworkIO(structure, {'a' : 0, 'b' : 1, 2 : 'c'})) # The <2> key is converted into a string.
 
     with db as session :
         nn = session.access.neural_network('bar')
-        ut.assert_equal([io.object for io in nn._structure.input().objects],
-                        [None, '', 'baz', session.access.word('foo'), [1, 2, 'hello'], {'a' : 0, 'b' : 1}])
+        ut.assert_equal(list(nn._structure.inputs().objects()),
+                        [None, '', 'baz', session.access.word('foo'), [1, 2, 'hello'], {'a' : 0, 'b' : 1, '2' : 'c'}])
+
+
+def _test_neural_network_methods (ut) :
+
+    training_patterns = [('ab', 'f'),
+                         ('ac', 'f'),
+                         ('b',  'd'),
+                         ('c',  'e')]
+
+    def weights () :
+        # Convoluted, yet deterministic weights.
+        for i in itertools.count() :
+            yield ((23 / 7) * 3.01 * i / 283) * (-1 if i % 2 == 0 else 1)
+
+    nn = NeuralNetwork('abc', 3, 'def', weights=weights)
+
+    total_error = round(sum(nn.train(inputs, outputs) for _ in range(20) for inputs, outputs in training_patterns), 5)
+
+    ut.assert_equal(total_error, 21.62668)
+
+    correct_outputs = [('f', 'd', 'e'),
+                       ('d', 'f', 'e'),
+                       ('e', 'f', 'd'),
+                       ('f', 'd', 'e'),
+                       ('f', 'e', 'd'),
+                       ('e', 'f', 'd')]
+
+    for inputs, correct in zip(['a', 'b', 'c', 'ab', 'ac', 'bc'], correct_outputs) :
+        ut.assert_equal([object for object, score in sorted(nn.predict(inputs), reverse=True)], correct)
+
+    ut.assert_true('a' in nn)
+    ut.assert_true('d' in nn)
+    ut.assert_true('z' not in nn)
+    ut.assert_true(173 not in nn)
+
+    ut.assert_equal(list(nn.inputs()), list('abc'))
+    ut.assert_equal(list(nn.outputs()), list('def'))
+    ut.assert_equal(list(nn), list('abcdef'))
+    ut.assert_equal([(object, round(score, 5)) for object, score in nn.scores()],
+                    [('d', -0.04185), ('e', 0.12802), ('f', 0.11855)])
 
 def __test__ (ut) :
     _test_document(ut)
     _test_neural_network_io(ut)
+    _test_neural_network_methods(ut)
 
     from nlplib.core.model import Database, Layer
 
@@ -89,27 +134,27 @@ def __test__ (ut) :
     from nlplib.core.model.sqlalchemy_.map import default_mapped
     from nlplib.general import timing
 
-    size = 10000
+    size = 10
 
     db = Database()
-    with db as session :
-        session.add(NeuralNetwork(list(range(size)), list(range(6)), list(range(size)), name='foo'))
-
-    from pprint import pprint
 
     @timing
     @db
-    def foo (session) :
+    def bar (session) :
+        #session.add(NeuralNetwork(list('abc'), list(range(456)), list('def'), name='foo'))
+        session.add(NeuralNetwork([{0 : 'a', 'b' : 1}, {}, 324, b'\xc3\x9c'.decode(), 'a', 'b'],
+                                  size,
+                                  range(size),
+                                  name='foo'))
+
+
         nn = session.access.nn('foo')
-        for input, connection, output in nn._structure :
-            input.values
-            connection.weights
-            output.values
-
-    foo()
-
-##    with db as session :
-##        nn = session.access.nn('foo')
+        print('d' in nn)
+        print('sdf' in nn)
+        print(list(nn.inputs()))
+        print(list(nn.outputs()))
+        print(list(nn))
+        print(list(nn.scores()))
 
 if __name__ == '__main__' :
     from nlplib.general.unittest import UnitTest

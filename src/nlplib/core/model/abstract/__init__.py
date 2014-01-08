@@ -81,12 +81,13 @@ def abstract_test (ut, db_cls) :
         session.add(Word('a'))
         session.add(Word('b'))
         session.add(Word('c'))
+        session.add(Word(b'\xc3\x9c'.decode()))
 
     with db as session :
         session.remove(session.access.word('b'))
 
     with db as session :
-        ut.assert_equal(sorted(session.access.all_words()), [Word('a'), Word('c')])
+        ut.assert_equal(sorted(session.access.all_words()), [Word('a'), Word('c'), Word(b'\xc3\x9c'.decode())])
 
     db = db_cls()
 

@@ -6,7 +6,6 @@ import itertools
 
 import numpy
 
-from nlplib.core.control.neuralnetwork import abstract
 from nlplib.core.base import Base
 from nlplib.general.iterate import paired
 from nlplib.general import composite
@@ -91,7 +90,7 @@ class NumPyNeuralNetwork (Base) :
             for layer_or_links in state :
                 layer_or_links.fill(0.0)
 
-class Feedforward (abstract.Feedforward) :
+class Feedforward (Base) :
     ''' A fast implementation of the feedforward neural network algorithm, using the NumPy library. '''
 
     def __call__ (self) :
@@ -110,7 +109,7 @@ class Feedforward (abstract.Feedforward) :
 
         return output_layer
 
-class Backpropagate (abstract.Backpropagate) :
+class Backpropagate (Base) :
     ''' A fast implementation of the backpropagation neural network training algorithm, using the NumPy library. '''
 
     def __call__ (self) :
@@ -160,102 +159,4 @@ class Backpropagate (abstract.Backpropagate) :
 
         for input_charges, output_errors, link_affinities in link_affinity_update_iterator :
             link_affinities += self.rate * (input_charges * output_errors[:,numpy.newaxis])
-
-def __test__ (ut) :
-    from nlplib.core.control.neuralnetwork.structure import MakePerceptron, StaticIO, Static
-    from nlplib.core.model import Database, NeuralNetwork, Word
-
-    db = Database()
-
-    with db as session :
-        nn = session.add(NeuralNetwork(name='foo'))
-
-        for char in 'abcdef' :
-            session.add(Word(char))
-
-        MakePerceptron(nn, StaticIO(session.access.words('a b c')), Static(6),
-                       StaticIO(session.access.words('d e f')))()
-
-    with db as session :
-        nn = session.access.neural_network('foo')
-
-        nnn = NumPyNeuralNetwork(nn)
-
-        a, b, c, d, e, f = session.access.words('a b c d e f')
-
-        training_patterns = [( (a, b), (f,) ),
-                             ( (a, c), (f,) ),
-                             ( (b,),   (d,) ),
-                             ( (c,),   (e,) )]
-
-        errors = []
-        for _ in range(100) :
-            for in_, out in training_patterns :
-
-                ins  = nn._structure.inputs_for_objects(in_)
-                outs = nn._structure.outputs_for_objects(out)
-
-                Feedforward(nnn, ins)()
-                errors.append(Backpropagate(nnn, ins, outs)())
-
-        ins = [(a,), (b,), (c,), (a, b), (a, c), (b, c)]
-
-        outs = [[ ('f', 0.927115), ('d', 0.082929), ('e', -0.580871) ],
-                [ ('d', 0.640232), ('e', 0.179109), ('f', 0.068058)  ],
-                [ ('e', 0.691237), ('d', 0.043618), ('f', -0.042884) ],
-                [ ('f', 0.854911), ('d', 0.463793), ('e', -0.296235) ],
-                [ ('f', 0.85542),  ('d', 0.06778),  ('e', 0.011365)  ],
-                [ ('e', 0.669032), ('d', 0.640655), ('f', -0.079214) ]]
-
-        for in_ in ins :
-
-            out = Feedforward(nnn, nn._structure.inputs_for_objects(in_))()
-
-            strs_and_scores = [(node.object, out[nnn.node_indexes[node][1]]) for node in nn._structure.outputs]
-
-            print(sorted(strs_and_scores, key=lambda both : both[1], reverse=True))
-
-##def __profile__ () :
-##    from nlplib.core.control.neuralnetwork.structure import MakePerceptron, StaticIO, Static
-##    from nlplib.core.model.neuralnetwork import Feedforward as NLPLibFeedforward, Backpropagate as NLPLibBackpropagate
-##    from nlplib.core.model import Database, NeuralNetwork, Word
-##    from nlplib.general import timing
-##    db = Database()
-##
-##    size = 10
-##    loops = 100
-##
-##    with db as session :
-##        words = [session.add(Word(str(i))) for i in range(size)]
-##
-##        nn = session.add(NeuralNetwork('nn'))
-##
-##        MakePerceptron(nn, StaticIO(words), Static(len(words)), StaticIO(words))()
-##
-##    with db as session :
-##        nn  = session.access.neural_network('nn')
-##
-##        input_ = session.access.input_nodes_for_seqs(nn, session.access.words('0 5 9'))
-##        output = session.access.output_nodes_for_seqs(nn, session.access.words('0 5 9'))
-##
-##        @timing
-##        def numpy_nn () :
-##            nnn = NumPyNeuralNetwork(nn)
-##            for _ in range(loops) :
-##                Feedforward(nnn, input_)()
-##                Backpropagate(nnn, input_, output)()
-##            nnn.update()
-##
-##        @timing
-##        def nlplib_nn () :
-##            for _ in range(loops) :
-##                NLPLibFeedforward(nn, input_)()
-##                NLPLibBackpropagate(nn, input_, output)()
-##
-##        numpy_nn()
-##        nlplib_nn()
-
-if __name__ == '__main__' :
-    from nlplib.general.unittest import UnitTest
-    __test__(UnitTest())
 

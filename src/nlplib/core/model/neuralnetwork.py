@@ -1,26 +1,24 @@
 
 
 import itertools
-import random
 
-from nlplib.core.control.neuralnetwork.alg import Feedforward, Backpropagate
-from nlplib.core.control.neuralnetwork.structure import Static, StaticIO, _LayerConfiguration
+from nlplib.core.control.neuralnetwork.structure import Static, StaticIO, _LayerConfiguration, random_weights
+from nlplib.core.control.neuralnetwork import Feedforward, Backpropagate
+from nlplib.core.control.score import Score
 from nlplib.core.model.naturallanguage import Seq
 from nlplib.core.model.base import Model
-from nlplib.core.control.score import Score
 from nlplib.core.base import Base
 from nlplib.core import exc
-from nlplib.general.represent import pretty_float
-from nlplib.general.iterate import truncated, paired, united
+from nlplib.general.iterate import truncated, paired
 from nlplib.general import math
 
 __all__ = ['NeuralNetwork', 'Layer', 'Connection', 'NeuralNetworkIO']
 
 class NeuralNetwork (Model) :
-    def __init__ (self, *config, name=None, **kw) :
+    def __init__ (self, *config, name=None, weights=random_weights) :
         self.name = name
 
-        self._structure = Structure(config, **kw)
+        self._structure = Structure(config, weights=weights)
 
     def __repr__ (self, *args, **kw) :
         if self.name is not None :
@@ -28,36 +26,39 @@ class NeuralNetwork (Model) :
         else :
             return super().__repr__(*args, **kw)
 
-    def __contains__ (self) :
-        raise NotImplementedError # todo : return bool() in object in inputs or outputs
+    def __getitem__ (self, object) :
+        #todo : make get value
+        raise NotImplementedError
+
+    def __contains__ (self, object) :
+        return object in tuple(self)
 
     def __iter__ (self) :
-        return chain(self._structure.inputs, self._structure.outputs)
+        return itertools.chain(self.inputs(), self.outputs())
 
     def inputs (self) :
-        for node in self._structure.inputs :
-            yield node.object
+        yield from self._structure.inputs().objects()
 
     def outputs (self) :
-        for node in self._structure.outputs :
-            yield node.object
+        yield from self._structure.outputs().objects()
 
     def scores (self) :
-        for node in self._structure.outputs :
-            yield Score(node.object, score=node.charge)
+        for object, charge in zip(self._structure.outputs().objects(), self._structure.outputs()) :
+            yield Score(object, score=charge)
 
     def predict (self, input_objects, *args, **kw) :
-        input_nodes = self._structure.inputs_for_objects(input_objects)
+        input_indexes = self._structure.input_indexes_for_objects(input_objects)
 
-        for node in self._structure.feedforward(input_objects, *args, **kw) :
-            yield Score(node.object, score=node.charge)
+        self._structure.feedforward(input_indexes, *args, **kw)
+
+        yield from self.scores()
 
     def train (self, input_objects, output_objects, *args, **kw) :
 
-        input_nodes  = self._structure.inputs_for_objects(input_objects)
-        output_nodes = self._structure.outputs_for_objects(output_objects)
+        input_indexes  = self._structure.input_indexes_for_objects(input_objects)
+        output_indexes = self._structure.output_indexes_for_objects(output_objects)
 
-        return self._structure.backpropogate(input_nodes, output_nodes, *args, **kw)
+        return self._structure.backpropogate(input_indexes, output_indexes, *args, **kw)
 
     def forget (self) :
         ''' This resets the network to an untrained state. '''
@@ -75,7 +76,7 @@ class NeuralNetworkConfiguration (Base) :
 
     def __init__ (self, *configs) :
         if len(configs) < 2 :
-            raise NeuralNetworkConfigurationError('This requires a neural network that has at least two layers.')
+            raise NeuralNetworkConfigurationError('The neural network must have at least two layers.')
 
         self._layer_configurations = list(self._make_layer_configurations(configs))
 
@@ -97,15 +98,9 @@ class NeuralNetworkConfiguration (Base) :
     def hidden (self) :
         return self._layer_configurations[1:-1]
 
-def random_weights (floor=-1.0, ceiling=1.0) :
-    ''' This can be used to initialize the connections in the neural network with pseudorandom weights. '''
+class _MakeStructure (Base) :
 
-    while True :
-        yield random.uniform(floor, ceiling)
-
-class MakeStructure (Base) :
-
-    def __init__ (self, structure, config, weights=random_weights) :
+    def __init__ (self, structure, config, weights) :
         self.structure = structure
         self.config = config
         self.weights = weights
@@ -117,14 +112,14 @@ class MakeStructure (Base) :
         layer = Layer(self.structure)
 
         if isinstance(config, StaticIO) :
-            objects = [NeuralNetworkIO(layer, object) for object in config]
-            layer.objects.extend(objects)
-            size = len(objects)
+            ios = [NeuralNetworkIO(self.structure, object) for object in config]
+            layer.io.extend(ios)
+            size = len(ios)
         else :
             size = len(list(config))
 
-        layer.values = (0.0,) * size
-        layer.errors = (0.0,) * size
+        layer._charges = (0.0,) * size
+        layer._errors  = (0.0,) * size
 
         return layer
 
@@ -136,8 +131,14 @@ class MakeStructure (Base) :
 
         yield self._make_layer(self.config[-1])
 
+    def _initial_weights (self) :
+        if callable(self.weights) :
+            return self.weights()
+        else :
+            return (self.weights for _ in itertools.count())
+
     def _connect (self, layers) :
-        weights = self.weights()
+        weights = self._initial_weights()
 
         for input_layer, output_layer in paired(layers) :
 
@@ -146,18 +147,18 @@ class MakeStructure (Base) :
             width  = len(input_layer)
             height = len(output_layer)
 
-            connection.weights = tuple(tuple(next(weights, 0.0) for _ in range(width))
-                                       for _ in range(height))
+            connection._weights = tuple(tuple(next(weights, 0.0) for _ in range(width))
+                                        for _ in range(height))
 
 class Structure (Model) :
-    def __init__ (self, config, **kw) :
+    def __init__ (self, config, weights) :
         self.elements = []
 
         self.layers      = []
         self.connections = []
 
         if len(config) :
-            MakeStructure(self, NeuralNetworkConfiguration(*config, **kw))()
+            _MakeStructure(self, NeuralNetworkConfiguration(*config), weights)()
 
     def __iter__ (self) :
         for (input_layer, output_layer), connection in zip(paired(self.layers), self.connections) :
@@ -169,42 +170,39 @@ class Structure (Model) :
     def _associated (self, session) :
         return self.elements
 
-    def inputs_for_objects (self, objects) :
-        # todo : could be made far more efficient
-        for node in self.inputs :
-            if node.object in objects :
-                yield node
+    def input_indexes_for_objects (self, objects) :
+        # todo : this could be done more efficiently
+        input_objects = list(self.inputs().objects())
+        for object in objects :
+            yield input_objects.index(object)
 
-    def outputs_for_objects (self, objects) :
-        # todo : could be made far more efficient
-        for node in self.outputs :
-            if node.object in objects :
-                yield node
+    def output_indexes_for_objects (self, objects) :
+        # todo : this could be done more efficiently
+        input_objects = list(self.outputs().objects())
+        for object in objects :
+            yield input_objects.index(object)
 
-    def input (self) :
+    def inputs (self) :
         return self.layers[0]
 
-    def output (self) :
+    def outputs (self) :
         return self.layers[-1]
 
     def hidden (self, reverse=False) :
-        layers = self if not reverse else reversed(self)
+        layers = self if not reverse else reversed(self.layers)
         return truncated(itertools.islice(layers, 1, None), 1)
 
-    def paired (self, reverse=False) :
-        layers = self if not reverse else reversed(self)
-        return paired(layers)
+    def feedforward (self, input_indexes, *args, **kw) :
+        return Feedforward(self, input_indexes, *args, **kw)()
 
-    def feedforward (self, input_nodes, *args, **kw) :
-        return Feedforward(self, input_nodes, *args, **kw)()
-
-    def backpropogate (self, input_nodes, output_nodes, rate=0.2, activation_derivative=math.dtanh,
+    def backpropogate (self, input_indexes, output_indexes, rate=0.2, activation_derivative=math.dtanh,
                        **kw) :
         ''' This method allows for supervised training, using the backpropagation algorithm. '''
 
-        self.feedforward(input_nodes, **kw)
+        self.feedforward(input_indexes, **kw)
 
-        return Backpropagate(self, input_nodes, output_nodes, rate=rate, activation_derivative=activation_derivative)()
+        return Backpropagate(self, input_indexes, output_indexes, rate=rate,
+                             activation_derivative=activation_derivative)()
 
     def clear (self) :
         ''' This deletes all of the network's nodes, leaving an empty network. '''
@@ -216,58 +214,92 @@ class Element (Model) :
 
     def __init__ (self, structure) :
         self.structure = structure
+        self.structure.elements.append(self)
 
 class Layer (Element) :
     def __init__ (self, structure) :
         super().__init__(structure)
+        self.structure.layers.append(self)
 
-        self.values = ()
-        self.errors = ()
+        self._charges = ()
+        self._errors  = ()
 
-        self.objects = []
+        self.io = []
 
     def __repr__ (self, *args, **kw) :
-        return super().__repr__(len(self.values), *args, **kw)
+        return super().__repr__(len(self._charges), *args, **kw)
 
     def __iter__ (self) :
-        return iter(self.values)
+        return iter(self._charges)
 
     def __len__ (self) :
-        return len(self.values)
+        return len(self._charges)
+
+    @property
+    def charges (self) :
+        return self._charges
+
+    @property
+    def errors (self) :
+        return self._errors
+
+    def objects (self) :
+        for io in self.io :
+            yield io.object
+
+    def set (self, indexes_with_charges) :
+
+        charges = list(self._charges)
+
+        for index, charge in indexes_with_charges :
+            charges[index] = charge
+
+        self._charges = tuple(charges)
+
+    def clear (self) :
+        self.fill(0.0)
+
+    def fill (self, charge=0.0) :
+        self._charges = (charge,) * len(self._charges)
 
 class Connection (Element) :
     def __init__ (self, structure) :
         super().__init__(structure)
+        self.structure.connections.append(self)
 
-        self.weights = ()
+        self._weights = ()
+
+    def __iter__ (self) :
+        return iter(self._weights)
 
     def __repr__ (self, *args, **kw) :
         try :
-            width = len(self.weights[0])
+            width = len(self._weights[0])
         except IndexError :
             width = 0
 
-        height = len(self.weights)
+        height = len(self._weights)
 
+        # A mock "dimensions" object for the textual representation.
         dimensions = type('Dimensions', (), {'__repr__' : lambda self : '{}x{}'.format(width, height)})()
 
         return super().__repr__(dimensions, *args, **kw)
 
-class NeuralNetworkIO (Element) :
-    def __init__ (self, layer, object) :
-        super().__init__(layer.structure)
+    @property
+    def weights (self) :
+        return self._weights
 
-        self.layer = layer
+class NeuralNetworkIO (Element) :
+    def __init__ (self, structure, object) :
+        super().__init__(structure)
+
         self.object = object
 
     def __repr__ (self, *arg, **kw) :
         return super().__repr__(self.object, *arg, **kw)
 
     def _make_object (self) :
-        if self._model is not None :
-            self._object = self._model
-        else :
-            self._object = self._pickled
+        self._object = self._model if self._model is not None else self._json
 
     @property
     def object (self) :
@@ -276,12 +308,12 @@ class NeuralNetworkIO (Element) :
     @object.setter
     def object (self, value) :
         self._model = None
-        self._pickled = None
+        self._json  = None
 
         if isinstance(value, Seq) : # todo : make handle all models not just Seq
             self._model = value
         else :
-            self._pickled = value
+            self._json = value
 
         self._object = value
 

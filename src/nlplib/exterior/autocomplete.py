@@ -1,6 +1,5 @@
 
 
-from nlplib.core.control.neuralnetwork import Prediction, Train, structure
 from nlplib.core.control.score import Scored
 from nlplib.core.process.parse import Parsed
 from nlplib.core.model import SessionDependent, NeuralNetwork

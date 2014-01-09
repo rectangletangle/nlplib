@@ -2,8 +2,8 @@
 
 import itertools
 
-from nlplib.core.control.neuralnetwork.structure import Static, StaticIO, _LayerConfiguration, random_weights
-from nlplib.core.control.neuralnetwork import Feedforward, Backpropagate
+from nlplib.core.control.neuralnetwork.structure import Static, StaticIO, LayerConfiguration, random_weights
+from nlplib.core.control.neuralnetwork import Feedforward, Backpropagate, collection
 from nlplib.core.control.score import Score
 from nlplib.core.model.naturallanguage import Seq
 from nlplib.core.model.base import Model
@@ -84,7 +84,7 @@ class NeuralNetworkConfiguration (Base) :
         for config in configs :
             if isinstance(config, int) :
                 yield Static(config)
-            elif not isinstance(config, _LayerConfiguration) :
+            elif not isinstance(config, LayerConfiguration) :
                 yield StaticIO(config)
             else :
                 yield config
@@ -118,8 +118,8 @@ class _MakeStructure (Base) :
         else :
             size = len(list(config))
 
-        layer._charges = (0.0,) * size
-        layer._errors  = (0.0,) * size
+        layer._charges = collection.Array([0.0] * size)
+        layer._errors  = collection.Array([0.0] * size)
 
         return layer
 
@@ -147,8 +147,8 @@ class _MakeStructure (Base) :
             width  = len(input_layer)
             height = len(output_layer)
 
-            connection._weights = tuple(tuple(next(weights, 0.0) for _ in range(width))
-                                        for _ in range(height))
+            connection._weights = collection.Matrix(tuple(next(weights, 0.0) for _ in range(width))
+                                                    for _ in range(height))
 
 class Structure (Model) :
     def __init__ (self, config, weights) :
@@ -221,8 +221,8 @@ class Layer (Element) :
         super().__init__(structure)
         self.structure.layers.append(self)
 
-        self._charges = ()
-        self._errors  = ()
+        self._charges = collection.Array()
+        self._errors  = collection.Array()
 
         self.io = []
 
@@ -247,38 +247,19 @@ class Layer (Element) :
         for io in self.io :
             yield io.object
 
-    def set (self, indexes_with_charges) :
-
-        charges = list(self._charges)
-
-        for index, charge in indexes_with_charges :
-            charges[index] = charge
-
-        self._charges = tuple(charges)
-
-    def clear (self) :
-        self.fill(0.0)
-
-    def fill (self, charge=0.0) :
-        self._charges = (charge,) * len(self._charges)
-
 class Connection (Element) :
     def __init__ (self, structure) :
         super().__init__(structure)
         self.structure.connections.append(self)
 
-        self._weights = ()
+        self._weights = collection.Matrix()
 
     def __iter__ (self) :
         return iter(self._weights)
 
     def __repr__ (self, *args, **kw) :
-        try :
-            width = len(self._weights[0])
-        except IndexError :
-            width = 0
-
-        height = len(self._weights)
+        width  = self._weights.width()
+        height = self._weights.height()
 
         # A mock "dimensions" object for the textual representation.
         dimensions = type('Dimensions', (), {'__repr__' : lambda self : '{}x{}'.format(width, height)})()

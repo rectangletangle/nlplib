@@ -1,11 +1,11 @@
 
+
 import random
 
 from nlplib.general.represent import pretty_ellipsis
 from nlplib.core.base import Base
 
-##__all__ = ['NeuralNetworkConfigurationError', 'NeuralNetworkConfiguration', 'random_affinity', 'MakeMultiLayer',
-##           'Static', 'StaticIO']
+__all__ = ['random_weights', 'LayerConfiguration', 'Static', 'StaticIO', 'Dynamic', 'DynamicIO']
 
 def random_weights (floor=-1.0, ceiling=1.0) :
     ''' This can be used to initialize the connections in the neural network with pseudorandom weights. '''
@@ -13,10 +13,10 @@ def random_weights (floor=-1.0, ceiling=1.0) :
     while True :
         yield random.uniform(floor, ceiling)
 
-class _LayerConfiguration (Base) :
+class LayerConfiguration (Base) :
     pass
 
-class Static (_LayerConfiguration) :
+class Static (LayerConfiguration) :
     def __init__ (self, size) :
         self.size = size
 
@@ -30,7 +30,7 @@ class Static (_LayerConfiguration) :
     def __len__ (self) :
         return self.size
 
-class StaticIO (_LayerConfiguration) :
+class StaticIO (LayerConfiguration) :
     def __init__ (self, objects) :
         self.objects = list(objects)
 
@@ -50,11 +50,11 @@ class StaticIO (_LayerConfiguration) :
     def __len__ (self) :
         return len(self.objects)
 
-class Dynamic (_LayerConfiguration) :
+class Dynamic (LayerConfiguration) :
     def __init__ (self, *args, **kw) :
         raise NotImplementedError
 
-class DynamicIO (_LayerConfiguration) :
+class DynamicIO (LayerConfiguration) :
     def __init__ (self, *args, **kw) :
         raise NotImplementedError
 

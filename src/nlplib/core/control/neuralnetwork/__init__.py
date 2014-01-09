@@ -1,12 +1,17 @@
 ''' This module contains abstract base classes for the various neural network algorithms. '''
 
 
+import numpy
+
+from nlplib.core.control.neuralnetwork.collection import Array, Matrix
 from nlplib.core.base import Base
-from nlplib.general import math
+from nlplib.general import math, composite
 
 __all__ = ['Feedforward', 'Backpropagate']
 
 class Feedforward (Base) :
+    ''' A pure Python implementation of the feedforward neural network algorithm. '''
+
     def __init__ (self, structure, input_indexes, active=1.0, inactive=0.0, activation=math.tanh) :
 
         self.structure = structure
@@ -19,13 +24,14 @@ class Feedforward (Base) :
         self.activation = activation
 
     def __call__ (self) :
-
         self._reset_input_charges()
+        return self._feedforward()
 
-        for input_layer, connection, output_layer in self.structure :
-            output_layer._charges = tuple(self.activation(charge)
-                                          for charge in self._excitement(connection, input_layer))
-        return output_layer
+    def _feedforward (self) :
+        for inputs, connection, outputs in self.structure :
+            outputs._charges = Array(self.activation(charge) for charge in self._excitement(connection, inputs))
+
+        return outputs
 
     def _excitement (self, connection, charges) :
         for weights in connection :
@@ -33,8 +39,12 @@ class Feedforward (Base) :
 
     def _reset_input_charges (self) :
         inputs = self.structure.inputs()
-        inputs.fill(self.inactive)
-        inputs.set((index, self.active) for index in self.input_indexes)
+
+        values = [self.inactive] * len(inputs)
+        for index in self.input_indexes :
+            values[index] = self.active
+
+        inputs._charges = Array(values)
 
 class Backpropagate (Base) :
     ''' A pure Python implementation of the backpropagation neural network training algorithm. '''
@@ -53,9 +63,10 @@ class Backpropagate (Base) :
         differences = self._output_errors()
         self._hidden_errors()
         self._update_connection_weights()
+        return self._total_error(differences)
 
-        total_error = sum(0.5 * difference ** 2 for difference in differences)
-        return total_error
+    def _total_error (self, differences) :
+        return sum(0.5 * difference ** 2 for difference in differences)
 
     def _correct_output_charges (self) :
         correct = [0.0] * len(self.structure.outputs())
@@ -73,62 +84,72 @@ class Backpropagate (Base) :
 
         differences = [correct_charge - actual_charge for correct_charge, actual_charge in zip(correct, outputs)]
 
-        outputs._errors = tuple(self.activation_derivative(charge) * difference
+        outputs._errors = Array(self.activation_derivative(charge) * difference
                                 for charge, difference in zip(outputs, differences))
 
         return differences
 
     def _excitement_error (self, connection, errors) :
-        transposed = zip(*connection.weights)
-        for weights in transposed :
+        for weights in connection.weights.transpose() :
             yield sum(weight * charge for weight, charge in zip(weights, errors))
 
     def _hidden_errors (self) :
-        for input_layer, connection, output_layer in reversed(list(self.structure)[1:]) :
+        for inputs, connection, outputs in reversed(list(self.structure)[1:]) :
 
-            errors = self._excitement_error(connection, output_layer.errors)
+            errors = list(self._excitement_error(connection, outputs.errors))
 
-            input_layer._errors = tuple(self.activation_derivative(charge) * error
-                                        for charge, error in zip(input_layer.charges, errors))
+            inputs._errors = Array(self.activation_derivative(charge) * error
+                                   for charge, error in zip(inputs.charges, errors))
 
     def _update_connection_weights (self) :
 
-        for input_layer, connection, output_layer in reversed(self.structure) :
+        for inputs, connection, outputs in reversed(self.structure) :
 
-            corrections = ((self.rate * charge * error for charge in input_layer.charges)
-                            for error in output_layer.errors)
+            corrections = ((self.rate * charge * error for charge in inputs.charges)
+                           for error in outputs.errors)
 
-            connection._weights = tuple(tuple(weight + correction_weight
-                                              for weight, correction_weight in zip(weights, correction_weights))
-                                        for weights, correction_weights in zip(connection, corrections))
+            connection._weights = Matrix(tuple(weight + correction_weight
+                                               for weight, correction_weight in zip(weights, correction_weights))
+                                         for weights, correction_weights in zip(connection, corrections))
 
-def __test__ (ut) :
+def __test__ (ut, feedforward_cls=Feedforward, backpropagate_cls=Backpropagate) :
+    import random
+
     from nlplib.core.model import NeuralNetwork
+
+    random.seed(0)
 
     nn = NeuralNetwork('abc', 3, 'def')
 
     def train (inputs, outputs) :
 
-        Feedforward(nn._structure, nn._structure.input_indexes_for_objects(inputs))()
+        feedforward_cls(nn._structure, nn._structure.input_indexes_for_objects(inputs))()
 
-        return Backpropagate(nn._structure, nn._structure.input_indexes_for_objects(inputs),
-                             nn._structure.output_indexes_for_objects(outputs))()
+        return backpropagate_cls(nn._structure, nn._structure.input_indexes_for_objects(inputs),
+                                 nn._structure.output_indexes_for_objects(outputs))()
 
     training_patterns = [('ab', 'f'),
                          ('ac', 'f'),
                          ('b',  'd'),
                          ('c',  'e')]
 
-    from nlplib.exterior.util import plot
+    ut.assert_equal('%.8f' % sum(train(inputs, outputs) for _ in range(200) for inputs, outputs in training_patterns),
+                    '19.47553614')
 
-    for _ in range(20) :
-        for inputs, outputs in training_patterns :
-            train(inputs, outputs)
+    correct_outputs = [[('0.97021362', 'f'), ('-0.84882957', 'e'), ('-0.50709088', 'd')],
+                       [('0.92238128', 'd'), ('0.00134225', 'e'),  ('-0.00298671', 'f')],
+                       [('0.93247123', 'e'), ('0.00284603', 'f'),  ('0.00172951', 'd')],
+                       [('0.97872110', 'f'), ('0.07496323', 'd'),  ('-0.03463506', 'e')],
+                       [('0.98019596', 'f'), ('0.01948382', 'e'),  ('-0.04068978', 'd')],
+                       [('0.90101923', 'd'), ('0.63745278', 'e'),  ('-0.01855872', 'f')]]
 
-    for inputs in ['a', 'b', 'c', 'ab', 'ac', 'bc'] :
-        output_layer = Feedforward(nn._structure, nn._structure.input_indexes_for_objects(inputs))()
+    for inputs, correct_output in zip(['a', 'b', 'c', 'ab', 'ac', 'bc'], correct_outputs) :
+        output_layer = feedforward_cls(nn._structure, nn._structure.input_indexes_for_objects(inputs))()
 
-        print(sorted((item for item in zip(output_layer.charges, output_layer.objects())), reverse=True))
+        actual_output = [('%.8f' % charge, object)
+                         for object, charge in zip(output_layer.objects(), output_layer.charges)]
+
+        ut.assert_equal(sorted(actual_output, reverse=True), correct_output)
 
 if __name__ == '__main__' :
     from nlplib.general.unittest import UnitTest

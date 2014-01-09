@@ -2,123 +2,40 @@
     drastically improved performance over the pure Python implementation. '''
 
 
-import itertools
-
 import numpy
 
-from nlplib.core.base import Base
-from nlplib.general.iterate import paired
+from nlplib.core.control.neuralnetwork import Feedforward as NLPLibFeedforward, Backpropagate as NLPLibBackpropagate
 from nlplib.general import composite
 
-__all__ = ['NumPyNeuralNetwork', 'Feedforward', 'Backpropagate']
+__all__ = ['Feedforward', 'Backpropagate']
 
-class NumPyNeuralNetwork (Base) :
-    ''' This class provides a way to represent a neural network as a series of NumPy arrays and matrices. '''
-
-    def __init__ (self, neural_network, dtype=float) :
-        self.neural_network = neural_network
-        self.dtype = dtype
-
-        self.node_indexes = {}
-        self.link_indexes = {}
-
-        structure = list(itertools.islice(self._structure(), 1, None))
-
-        self.charges    = structure[::2]
-        self.errors     = [numpy.zeros(len(layer), dtype=self.dtype) for layer in self.charges]
-        self.affinities = structure[1::2]
-
-    def _structure (self) :
-        for layer_index, layer in enumerate(self.neural_network._structure) :
-            charges = []
-            charges_append = charges.append
-
-            links = []
-            links_append = links.append
-
-            for node_index, node in enumerate(layer) :
-                self.node_indexes[node] = (layer_index, node_index)
-                charges_append(node.charge)
-
-                affinities = []
-                affinities_append = affinities.append
-
-                for link_index, link in enumerate(node.inputs.values()) :
-                    self.link_indexes[link] = (layer_index, node_index, link_index)
-                    affinities_append(link.affinity)
-
-                links_append(affinities)
-
-            yield numpy.matrix(links, dtype=self.dtype)
-            yield numpy.array(charges, dtype=self.dtype)
-
-    def __iter__ (self) :
-        return iter(self.charges)
-
-    def __reversed__ (self) :
-        return reversed(self.charges)
-
-    def update (self, charges=True) :
-        ''' This updates the neural network with the contents of the NumPy arrays. '''
-
-        if charges :
-            for node, (layer_index, node_index) in self.node_indexes.items() :
-                node.charge = self.charges[layer_index][node_index]
-
-        for link, (layer_index, node_index, link_index) in self.link_indexes.items() :
-            link.affinity = self.affinities[layer_index-1][node_index, link_index]
-
-    @property
-    def inputs (self) :
-        ''' Input layer charges. '''
-
-        return self.charges[0]
-
-    @property
-    def outputs (self) :
-        ''' Output layer charges. '''
-
-        return self.charges[-1]
-
-    def hidden (self, reverse=False) :
-        ''' Layers of hidden charges. '''
-
-        return iter(self.charges[1:-1]) if not reverse else reversed(self.charges[1:-1])
-
-    def clear (self) :
-        for state in [self.charges, self.errors, self.affinities] :
-            for layer_or_links in state :
-                layer_or_links.fill(0.0)
-
-class Feedforward (Base) :
+class Feedforward (NLPLibFeedforward) :
     ''' A fast implementation of the feedforward neural network algorithm, using the NumPy library. '''
 
-    def __call__ (self) :
-        self.neural_network.inputs.fill(self.inactive)
-
-        active_indexes = [self.neural_network.node_indexes[node][1] for node in self.input_nodes]
-        self.neural_network.inputs[active_indexes] = self.active
-
-        dot = numpy.dot
+    def _feedforward (self) :
         activation = numpy.vectorize(self.activation)
-        as_array = numpy.asarray
+        for inputs, connection, outputs in self.structure :
+            outputs._charges._values[:] = activation(numpy.asarray(self._excitement(connection,
+                                                                                    inputs.charges)).flatten())
+            outputs._charges = outputs._charges
 
-        for (input_layer, output_layer), affinities in zip(paired(self.neural_network),
-                                                           self.neural_network.affinities) :
-            output_layer[:] = activation(as_array(dot(affinities, input_layer)).flatten())
+        return outputs
 
-        return output_layer
+    def _excitement (self, connection, charges) :
+        return numpy.dot(connection._weights._values, charges._values)
 
-class Backpropagate (Base) :
+    def _reset_input_charges (self) :
+        inputs = self.structure.inputs()
+
+        inputs._charges._values.fill(self.inactive)
+        inputs._charges._values[list(self.input_indexes)] = self.active
+        inputs._charges = inputs._charges
+
+class Backpropagate (NLPLibBackpropagate) :
     ''' A fast implementation of the backpropagation neural network training algorithm, using the NumPy library. '''
 
-    def __call__ (self) :
-        output_differences = self._output_errors()
-        self._hidden_errors()
-        self._update_link_affinities()
-
-        total_error = (0.5 * output_differences ** 2).sum()
-        return total_error
+    def _total_error (self, differences) :
+        return (0.5 * differences ** 2).sum()
 
     @composite(lambda self : (self.activation_derivative,))
     def _vectorized_activation_derivative (self) :
@@ -127,36 +44,74 @@ class Backpropagate (Base) :
     def _output_errors (self) :
         activation_derivative = self._vectorized_activation_derivative
 
-        correct = numpy.zeros(len(self.neural_network.outputs))
-        indexes = [self.neural_network.node_indexes[node][1] for node in self.output_nodes]
+        outputs = self.structure.outputs()
 
-        correct[indexes] = 1.0
+        correct = numpy.zeros(len(outputs))
+        correct[list(self.output_indexes)] = 1.0
 
-        difference = correct - self.neural_network.outputs
+        differences = correct - outputs._charges._values
 
-        self.neural_network.errors[-1] = activation_derivative(self.neural_network.outputs) * difference
+        outputs._errors._values[:] = activation_derivative(outputs._charges._values) * differences
+        outputs._errors = outputs._errors
 
-        return difference
+        return differences
+
+    def _excitement_error (self, connection, errors) :
+        return numpy.asarray(numpy.dot(connection._weights._values.transpose(), errors._values)).flatten()
 
     def _hidden_errors (self) :
 
-        dot = numpy.dot
-        as_array = numpy.asarray
         activation_derivative = self._vectorized_activation_derivative
 
-        hidden_error_iterator = zip(self.neural_network.hidden(reverse=True),
-                                    reversed(self.neural_network.affinities),
-                                    reversed(list(paired(self.neural_network.errors))))
+        for inputs, connection, outputs in reversed(list(self.structure)[1:]) :
 
-        for charges, affinities, (input_errors, output_errors) in hidden_error_iterator :
-            difference = as_array(dot(affinities.transpose(), output_errors)).flatten()
-            input_errors[:] = activation_derivative(charges) * difference
+            errors = self._excitement_error(connection, outputs.errors)
 
-    def _update_link_affinities (self) :
-        link_affinity_update_iterator = zip(itertools.islice(reversed(self.neural_network), 1, None),
-                                            reversed(self.neural_network.errors),
-                                            reversed(self.neural_network.affinities))
+            inputs._errors._values[:] = activation_derivative(inputs._charges._values) * errors
+            inputs._errors = inputs._errors
 
-        for input_charges, output_errors, link_affinities in link_affinity_update_iterator :
-            link_affinities += self.rate * (input_charges * output_errors[:,numpy.newaxis])
+    def _update_connection_weights (self) :
+        for inputs, connection, outputs in reversed(self.structure) :
+            weights = self.rate * (inputs._charges._values * outputs._errors._values[:,numpy.newaxis])
+
+            connection._weights._values += weights
+            connection._weights = connection._weights
+
+def __test__ (ut) :
+    from nlplib.core.control.neuralnetwork import __test__
+
+    return __test__(ut, feedforward_cls=Feedforward, backpropagate_cls=Backpropagate)
+
+def __profile__ () :
+    import random
+
+    from nlplib.core.model import NeuralNetwork
+    from nlplib.general import timing
+
+    size  = 100
+    loops = 100
+
+    random.seed(0)
+    nn = NeuralNetwork(size, size, size)
+
+    @timing
+    def nlplib () :
+        for _ in range(loops) :
+            NLPLibBackpropagate(nn._structure, [0, 50, 99], [23, 45])()
+
+    random.seed(0)
+    nn = NeuralNetwork(size, size, size)
+
+    @timing
+    def numpy () :
+        for _ in range(loops) :
+            Backpropagate(nn._structure, [0, 50, 99], [23, 45])()
+
+    nlplib()
+    numpy()
+
+if __name__ == '__main__' :
+    from nlplib.general.unittest import UnitTest
+    __test__(UnitTest())
+    __profile__()
 

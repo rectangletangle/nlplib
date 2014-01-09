@@ -13,7 +13,7 @@ _log_switch = {None     : lambda output : output,
                'print'  : lambda output : print(output),
                True     : lambda output : print(output)}
 
-def _logging_function (mode) : # This is used in <nlplib.general.timing> too.
+def _logging_function (mode) : # This is used in the <nlplib.general.timing> decorator too.
     return _log_switch.get(mode, mode)
 
 class UnitTest :
@@ -125,13 +125,13 @@ def __test__ (ut) :
     ut.assert_equal(mocked.baz('baz'), 'bazbaz')
 
     class Foo (Exception) :
-        pass
+        ...
 
     class Bar (Exception) :
-        pass
+        ...
 
     class Baz (Bar) :
-        pass
+        ...
 
     def raise_bar () :
         raise Bar

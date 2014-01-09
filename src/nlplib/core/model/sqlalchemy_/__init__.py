@@ -15,11 +15,16 @@ from nlplib.core.model import abstract
 
 __all__ = ['Session', 'Database']
 
+_make_sqlalchemy_session = sessionmaker(expire_on_commit=False)
+
 class Session (abstract.Session) :
     def __init__ (self, sqlalchemy_session) :
         self._sqlalchemy_session = sqlalchemy_session
 
         self.access = Access(self)
+
+    def __contains__ (self, object) :
+        return object in self._sqlalchemy_session
 
     def add (self, object) :
         try :
@@ -43,17 +48,17 @@ class Session (abstract.Session) :
         self._sqlalchemy_session.delete(object)
 
 class Database (abstract.Database) :
+
     def __init__ (self, *args, **kw) :
         super().__init__(*args, **kw)
 
         self._sqlalchemy_engine = create_engine(self.path)
-        self._make_sqlalchemy_session = sessionmaker(bind=self._sqlalchemy_engine)
-
         default_mapped.metadata.create_all(self._sqlalchemy_engine)
 
     @contextmanager
     def session (self) :
-        sqlalchemy_session = self._make_sqlalchemy_session()
+        sqlalchemy_session = _make_sqlalchemy_session(bind=self._sqlalchemy_engine.connect())
+
         try :
             yield Session(sqlalchemy_session)
             sqlalchemy_session.commit()

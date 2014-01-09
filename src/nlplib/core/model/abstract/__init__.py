@@ -72,22 +72,56 @@ class Database (Base) :
 
         raise NotImplementedError
 
-def abstract_test (ut, db_cls) :
-    from nlplib.core.model import Word
+def _test_session_scope (ut, db_cls) :
+    from nlplib.core.model import Word, Document
 
     db = db_cls()
 
-    with db as session :
-        session.add(Word('a'))
-        session.add(Word('b'))
-        session.add(Word('c'))
-        session.add(Word(b'\xc3\x9c'.decode()))
+    word = Word('sdfvcx')
+
+    document = Document('hello')
 
     with db as session :
-        session.remove(session.access.word('b'))
+        ut.assert_true(word not in session)
+
+        other_document = session.add(Document('hello'))
+        session.add(word)
+
+        other_document.seqs.append(word)
+
+        document.seqs.append(word)
+        ut.assert_true(word in session)
+
+    ut.assert_true(word in document)
+    ut.assert_true(word in other_document)
+
+    ut.assert_equal(word.string, 'sdfvcx')
+    ut.assert_true(word not in session)
 
     with db as session :
-        ut.assert_equal(sorted(session.access.all_words()), [Word('a'), Word('c'), Word(b'\xc3\x9c'.decode())])
+        ut.assert_true(word not in session)
+
+        word_from_db, *others = session.access.vocabulary()
+        document_from_db, = session.access.all_documents()
+
+        ut.assert_true(word_from_db is not document.seqs[0])
+        ut.assert_true(word_from_db is not other_document.seqs[0])
+        ut.assert_true(word_from_db is document_from_db.seqs[0])
+
+        ut.assert_true(word_from_db is not word)
+        word_from_db.string = '25'
+
+        ut.assert_equal(word_from_db.string, '25')
+        ut.assert_equal(word.string, 'sdfvcx')
+
+    ut.assert_true(word not in session)
+    ut.assert_equal(word.string, 'sdfvcx')
+
+    ut.assert_true(word_from_db not in session)
+    ut.assert_equal(word_from_db.string, '25')
+
+def _test_nested_sessions (ut, db_cls) :
+    from nlplib.core.model import Word
 
     db = db_cls()
 
@@ -99,6 +133,9 @@ def abstract_test (ut, db_cls) :
 
     with db as session :
         ut.assert_equal(sorted(session.access.all_words()), [Word('x'), Word('y'), Word('z')])
+
+def _test_session_decorator (ut, db_cls) :
+    from nlplib.core.model import Word
 
     db = db_cls()
 
@@ -112,13 +149,45 @@ def abstract_test (ut, db_cls) :
     with db as session :
         ut.assert_equal(sorted(session.access.all_words()), [Word('0'), Word('1'), Word('2')])
 
+def _test_addition_and_removal (ut, db_cls) :
+    from nlplib.core.model import Word
+
+    db = db_cls()
+
+    a = Word('a')
+
+    with db as session :
+        added_a = session.add(a)
+        ut.assert_true(added_a is a)
+
+        b = session.add(Word('b'))
+        c = session.add(Word('c'))
+        session.add(c) # Repetition does nothing.
+
+        ut.assert_equal(list(session.access.vocabulary()), [a, b, c])
+
+        a_from_db, *_ = session.access.vocabulary()
+        ut.assert_true(added_a is a is a_from_db)
+
+        session.add(Word(b'\xc3\x9c'.decode()))
+
+    with db as session :
+        session.remove(session.access.word('b'))
+
+    with db as session :
+        ut.assert_equal(sorted(session.access.vocabulary()), [Word('a'), Word('c'), Word(b'\xc3\x9c'.decode())])
+
+    # Test <add_many>
     db = db_cls()
 
     with db.session() as session :
         session.add_many(Word(number) for number in '345')
 
     with db.session() as session :
-        ut.assert_equal(sorted(session.access.all_words()), [Word('3'), Word('4'), Word('5')])
+        ut.assert_equal(sorted(session.access.vocabulary()), [Word('3'), Word('4'), Word('5')])
+
+def _test_session_rollback (ut, db_cls) :
+    from nlplib.core.model import Word
 
     # Tests rollback.
     db = db_cls()
@@ -131,7 +200,7 @@ def abstract_test (ut, db_cls) :
         pass
 
     with db as session :
-        ut.assert_equal(list(session.access.all_words()), [])
+        ut.assert_equal(list(session.access.vocabulary()), [])
 
     @db
     def bar (session) :
@@ -145,6 +214,33 @@ def abstract_test (ut, db_cls) :
         pass
 
     with db as session :
-        ut.assert_equal(list(session.access.all_words()), [])
+        ut.assert_equal(list(session.access.vocabulary()), [])
 
+    # Tests rollback and scope.
+    db = db_cls()
+
+    x = Word('x')
+    u = Word('u')
+
+    try :
+        with db as session :
+            session.add(x)
+            session.add(u)
+            u.string = 'uu'
+            ut.assert_equal(u.string, 'uu')
+            raise TimeoutError # An arbitrary exception.
+    except TimeoutError :
+        pass
+
+    ut.assert_equal(u.string, 'uu')
+    ut.assert_equal(x.string, 'x')
+
+def abstract_test (ut, db_cls) :
+    ''' All database implementations should be able to pass all of these tests. '''
+
+    _test_session_scope(ut, db_cls)
+    _test_nested_sessions(ut, db_cls)
+    _test_session_decorator(ut, db_cls)
+    _test_addition_and_removal(ut, db_cls)
+    _test_session_rollback(ut, db_cls)
 

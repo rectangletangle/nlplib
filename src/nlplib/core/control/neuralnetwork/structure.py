@@ -5,7 +5,7 @@ import random
 from nlplib.general.represent import pretty_ellipsis
 from nlplib.core.base import Base
 
-__all__ = ['random_weights', 'LayerConfiguration', 'Static', 'StaticIO', 'Dynamic', 'DynamicIO']
+__all__ = ['random_weights', 'LayerConfiguration', 'StaticLayer', 'StaticIOLayer', 'Dynamic', 'DynamicIO']
 
 def random_weights (floor=-1.0, ceiling=1.0) :
     ''' This can be used to initialize the connections in the neural network with pseudorandom weights. '''
@@ -16,7 +16,7 @@ def random_weights (floor=-1.0, ceiling=1.0) :
 class LayerConfiguration (Base) :
     pass
 
-class Static (LayerConfiguration) :
+class StaticLayer (LayerConfiguration) :
     def __init__ (self, size) :
         self.size = size
 
@@ -30,7 +30,7 @@ class Static (LayerConfiguration) :
     def __len__ (self) :
         return self.size
 
-class StaticIO (LayerConfiguration) :
+class StaticIOLayer (LayerConfiguration) :
     def __init__ (self, objects) :
         self.objects = list(objects)
 

@@ -126,8 +126,12 @@ def _test_neural_network_methods (ut) :
     with db as session :
         session.add(nn)
 
+    tests(nn)
+
     with db as session :
         tests(session.access.nn('foo'))
+
+    tests(nn)
 
 def __test__ (ut) :
     _test_document(ut)

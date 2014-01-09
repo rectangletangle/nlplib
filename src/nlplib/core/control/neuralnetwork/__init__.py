@@ -49,7 +49,8 @@ class Feedforward (Base) :
 class Backpropagate (Base) :
     ''' A pure Python implementation of the backpropagation neural network training algorithm. '''
 
-    def __init__ (self, structure, input_indexes, output_indexes, rate=0.2, activation_derivative=math.dtanh) :
+    def __init__ (self, structure, input_indexes, output_indexes, rate=0.2, active=1.0, inactive=0.0,
+                  activation_derivative=math.dtanh) :
 
         self.structure = structure
 
@@ -57,6 +58,10 @@ class Backpropagate (Base) :
         self.output_indexes = output_indexes
 
         self.rate = rate
+
+        self.active   = active
+        self.inactive = inactive
+
         self.activation_derivative = activation_derivative
 
     def __call__ (self) :
@@ -69,10 +74,10 @@ class Backpropagate (Base) :
         return sum(0.5 * difference ** 2 for difference in differences)
 
     def _correct_output_charges (self) :
-        correct = [0.0] * len(self.structure.outputs())
+        correct = [self.inactive] * len(self.structure.outputs())
 
         for index in self.output_indexes :
-            correct[index] = 1.0
+            correct[index] = self.active
 
         return correct
 

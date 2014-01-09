@@ -2,7 +2,7 @@
 
 import itertools
 
-from nlplib.core.control.neuralnetwork.structure import Static, StaticIO, LayerConfiguration, random_weights
+from nlplib.core.control.neuralnetwork.structure import StaticLayer, StaticIOLayer, LayerConfiguration, random_weights
 from nlplib.core.control.neuralnetwork import Feedforward, Backpropagate, collection
 from nlplib.core.control.score import Score
 from nlplib.core.model.naturallanguage import Seq
@@ -26,8 +26,7 @@ class NeuralNetwork (Model) :
         else :
             return super().__repr__(*args, **kw)
 
-    def __getitem__ (self, object) :
-        #todo : make get value
+    def __getitem__ (self, object) : # todo : make get value
         raise NotImplementedError
 
     def __contains__ (self, object) :
@@ -60,10 +59,10 @@ class NeuralNetwork (Model) :
 
         return self._structure.backpropogate(input_indexes, output_indexes, *args, **kw)
 
-    def forget (self) :
+    def forget (self) : # todo :
         ''' This resets the network to an untrained state. '''
 
-        raise NotImplementedError # todo :
+        raise NotImplementedError
 
     def _associated (self, session) :
         return [self._structure]
@@ -83,9 +82,9 @@ class NeuralNetworkConfiguration (Base) :
     def _make_layer_configurations (self, configs) :
         for config in configs :
             if isinstance(config, int) :
-                yield Static(config)
+                yield StaticLayer(config)
             elif not isinstance(config, LayerConfiguration) :
-                yield StaticIO(config)
+                yield StaticIOLayer(config)
             else :
                 yield config
 
@@ -111,7 +110,7 @@ class _MakeStructure (Base) :
     def _make_layer (self, config) :
         layer = Layer(self.structure)
 
-        if isinstance(config, StaticIO) :
+        if isinstance(config, StaticIOLayer) :
             ios = [NeuralNetworkIO(self.structure, object) for object in config]
             layer.io.extend(ios)
             size = len(ios)

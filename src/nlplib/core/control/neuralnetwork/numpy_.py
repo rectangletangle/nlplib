@@ -46,8 +46,8 @@ class Backpropagate (NLPLibBackpropagate) :
 
         outputs = self.structure.outputs()
 
-        correct = numpy.zeros(len(outputs))
-        correct[list(self.output_indexes)] = 1.0
+        correct = numpy.full(len(outputs), self.inactive)
+        correct[list(self.output_indexes)] = self.active
 
         differences = correct - outputs._charges._values
 
@@ -88,8 +88,8 @@ def __profile__ () :
     from nlplib.core.model import NeuralNetwork
     from nlplib.general import timing
 
-    size  = 100
-    loops = 100
+    size  = 1000
+    loops = 1
 
     random.seed(0)
     nn = NeuralNetwork(size, size, size)
@@ -97,7 +97,7 @@ def __profile__ () :
     @timing
     def nlplib () :
         for _ in range(loops) :
-            NLPLibBackpropagate(nn._structure, [0, 50, 99], [23, 45])()
+            NLPLibBackpropagate(nn._structure, [0, 1, 2], [3, 4])()
 
     random.seed(0)
     nn = NeuralNetwork(size, size, size)
@@ -105,7 +105,7 @@ def __profile__ () :
     @timing
     def numpy () :
         for _ in range(loops) :
-            Backpropagate(nn._structure, [0, 50, 99], [23, 45])()
+            Backpropagate(nn._structure, [0, 1, 2], [3, 4])()
 
     nlplib()
     numpy()

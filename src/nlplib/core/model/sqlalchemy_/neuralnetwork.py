@@ -1,15 +1,22 @@
 ''' This module outlines how neural network related models are mapped to their respective SQLAlchemy tables. '''
 
-import json
 
-from sqlalchemy.orm.collections import attribute_mapped_collection
-from sqlalchemy.orm import relationship, column_property, backref, reconstructor
-from sqlalchemy.sql import and_, not_
-from sqlalchemy import Column, Boolean, Integer, Float, String, ForeignKey, PickleType, TypeDecorator
+import json
+import pickle
+
+from sqlalchemy.orm import relationship, column_property, reconstructor
+from sqlalchemy import Column, Integer, Float, String, ForeignKey, Binary, TypeDecorator
 
 from nlplib.core.model.sqlalchemy_.base import ClassMapper
 from nlplib.core.model.neuralnetwork import NeuralNetwork, Structure, Element, Layer, Connection, NeuralNetworkIO
 from nlplib.core.model.exc import StorageError
+
+try :
+    # An attempt is made to import NumPy powered data structures.
+    from nlplib.core.control.neuralnetwork.numpy_ import Array, Matrix
+except ImportError :
+    # Fall back to the slower pure Python versions, if NumPy isn't installed.
+    from nlplib.core.control.neuralnetwork import Array, Matrix
 
 class _JSONType (TypeDecorator) :
 
@@ -23,6 +30,26 @@ class _JSONType (TypeDecorator) :
 
     def process_result_value (self, value, dialect) :
         return json.loads(value)
+
+class _ArrayType (TypeDecorator) :
+
+    impl = Binary
+
+    def process_bind_param (self, values, dialect) :
+        return pickle.dumps(list(values))
+
+    def process_result_value (self, values, dialect) :
+        return Array(pickle.loads(values))
+
+class _MatrixType (TypeDecorator) :
+
+    impl = Binary
+
+    def process_bind_param (self, values, dialect) :
+        return pickle.dumps(list(values))
+
+    def process_result_value (self, values, dialect) :
+        return Matrix(pickle.loads(values))
 
 class NeuralNetworkMapper (ClassMapper) :
     cls  = NeuralNetwork
@@ -77,8 +104,8 @@ class LayerMapper (ClassMapper) :
 
     def columns (self) :
         return (Column('id', Integer, ForeignKey('element.id'), primary_key=True),
-                Column('charges', PickleType),
-                Column('errors', PickleType))
+                Column('charges', _ArrayType),
+                Column('errors', _ArrayType))
 
     def mapper_kw (self) :
         return {'inherits' : self.classes['element'],
@@ -95,7 +122,7 @@ class ConnectionMapper (ClassMapper) :
 
     def columns (self) :
         return (Column('id', Integer, ForeignKey('element.id'), primary_key=True),
-                Column('weights', PickleType))
+                Column('weights', _MatrixType))
 
     def mapper_kw (self) :
         return {'inherits' : self.classes['element'],

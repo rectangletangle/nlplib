@@ -1,7 +1,9 @@
 
 
+
+import nlplib.core.model
+
 from nlplib.core.process.token import split
-from nlplib.core.model import Gram
 from nlplib.core.base import Base
 
 __all__ = ['Window', 'Concordance']
@@ -70,8 +72,9 @@ class Concordance (Base) :
             yield split_document[window.slice(index.first_token, index.last_token)]
 
     def grams (self, *args, **kw) :
+        gram_cls = nlplib.core.model.Gram
         for gram_tuple in self.gram_tuples(*args, **kw) :
-            yield Gram(gram_tuple)
+            yield gram_cls(gram_tuple)
 
     def documents (self, documents=None) :
         if documents is None :
@@ -94,7 +97,7 @@ def _test_window (ut) :
 
 def __test__ (ut) :
     from nlplib.core.process.index import Indexed
-    from nlplib.core.model import Database, Document, Word
+    from nlplib.core.model import Database, Document, Word, Gram
 
     _test_window(ut)
 
@@ -120,8 +123,12 @@ def __test__ (ut) :
 
     # Testing
     with db as session :
-        concordance_of_is_a = Concordance(session.access.gram('is a'))
+        is_a = session.access.gram('is a')
+
+        concordance_of_is_a = Concordance(is_a)
         ut.assert_equal(len(concordance_of_is_a), 2)
+
+        ut.assert_equal(list(concordance_of_is_a), list(is_a.concordance()))
 
         grams_for_concordance = concordance_of_is_a.grams(window=Window(before=1, after=2))
         correct_strings = ['Python is a widely used', 'Python is a significant fork']

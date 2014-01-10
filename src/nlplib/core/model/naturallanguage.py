@@ -2,6 +2,7 @@
 
 from functools import total_ordering
 
+from nlplib.core.process.concordance import Concordance
 from nlplib.core.model.base import Model
 from nlplib.general.represent import pretty_truncate, represented_literally
 from nlplib.general import composite
@@ -118,8 +119,8 @@ class Seq (Model) :
     def count (self) :
         return len(self.indexes)
 
-    def concordance (self) : # todo :
-        raise NotImplementedError
+    def concordance (self) :
+        return Concordance(self)
 
 class Word (Seq) :
     ''' This class is used for representing words. Currently homographic words are not supported. '''

@@ -164,6 +164,7 @@ def __test__ (ut) :
     ut.assert_equal(parsed_string(string, stem=str, stop_seqs={'The', 'ate'}), 'And cat the foOd and')
 
     # todo : make remove *entire* stop gram
+    # todo : make Seperate StopWordsRemoved class
     string = 'the and the and if the and the the and platypus the'
     ut.assert_equal(parsed_string(string, max_gram_length=2, yield_grams=False,
                                   stop_seqs={('and', 'the'), 'platypus'}),

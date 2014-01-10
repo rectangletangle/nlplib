@@ -14,14 +14,14 @@ class Session (Base) :
     def __init__ (self) :
         self.access = None
 
+    def __contains__ (self, object) :
+        raise NotImplementedError
+
     def add (self, object) :
         raise NotImplementedError
 
     def add_many (self, objects) :
         return [self.add(object) for object in objects]
-
-    def _remove (self, object) :
-        raise NotImplementedError
 
     def remove (self, object) :
         if hasattr(object, '_associated') :
@@ -31,6 +31,9 @@ class Session (Base) :
                 self._remove(associated_object)
 
         self._remove(object)
+
+    def _remove (self, object) :
+        raise NotImplementedError
 
 class Database (Base) :
     ''' This class represents a database. Generally you don't interface with the database directly so much, but instead
@@ -219,12 +222,11 @@ def _test_session_rollback (ut, db_cls) :
     # Tests rollback and scope.
     db = db_cls()
 
-    x = Word('x')
     u = Word('u')
 
     try :
         with db as session :
-            session.add(x)
+            x = session.add(Word('x'))
             session.add(u)
             u.string = 'uu'
             ut.assert_equal(u.string, 'uu')

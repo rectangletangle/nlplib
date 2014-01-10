@@ -4,6 +4,7 @@
 
 import unittest
 import pkgutil
+import warnings
 
 __all__ = ['UnitTest', 'mock', 'test_everything']
 
@@ -71,7 +72,11 @@ def _import_everything_from (pkg) :
         try :
             module = loader.find_module(name).load_module(name)
         except NotImplementedError :
-            pass
+            ...
+        except ImportError :
+            msg = "<{}> couldn't be imported.".format(name)
+            warnings.warn(Warning(msg))
+            print()
         else :
             yield module
 

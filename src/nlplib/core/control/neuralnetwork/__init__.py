@@ -1,13 +1,61 @@
 ''' This module contains abstract base classes for the various neural network algorithms. '''
 
 
-import numpy
-
-from nlplib.core.control.neuralnetwork.collection import Array, Matrix
 from nlplib.core.base import Base
 from nlplib.general import math, composite
 
-__all__ = ['Feedforward', 'Backpropagate']
+__all__ = ['Array', 'Matrix', 'Feedforward', 'Backpropagate']
+
+class Array (Base) :
+
+    __slots__ = ('_values',)
+
+    def __init__ (self, values=()) :
+        self._values = tuple(values)
+
+    def __repr__ (self, *args, **kw) :
+        return super().__repr__(list(self._values), *args, **kw)
+
+    def __iter__ (self) :
+        return iter(self._values)
+
+    def __eq__ (self, other) :
+        return list(self._values) == other
+
+    def __len__ (self) :
+        return len(self._values)
+
+class Matrix (Base) :
+
+    __slots__ = ('_values',)
+
+    def __init__ (self, values=()) :
+        self._values = list(values)
+
+    def __repr__ (self, *args, **kw) :
+        return super().__repr__(list(self), *args, **kw)
+
+    def __eq__ (self, other) :
+        return list(self) == other
+
+    def __len__ (self) :
+        return len(self._values)
+
+    def __iter__ (self) :
+        for row in self._values :
+            yield tuple(row)
+
+    def transpose (self) :
+        return self.__class__(zip(*self._values))
+
+    def width (self) :
+        try :
+            return len(self._values[0])
+        except IndexError :
+            return 0
+
+    def height (self) :
+        return len(self._values)
 
 class Feedforward (Base) :
     ''' A pure Python implementation of the feedforward neural network algorithm. '''
@@ -117,14 +165,50 @@ class Backpropagate (Base) :
                                                for weight, correction_weight in zip(weights, correction_weights))
                                          for weights, correction_weights in zip(connection, corrections))
 
-def __test__ (ut, feedforward_cls=Feedforward, backpropagate_cls=Backpropagate) :
+def _test_collections (ut, array_cls=Array, matrix_cls=Matrix) :
+    import pickle
+
+    # Tests the array.
+    array = array_cls([1, 2, 3])
+    ut.assert_equal(len(array), 3)
+    ut.assert_equal(list(array), [1, 2, 3])
+    ut.assert_equal(array, [1, 2, 3])
+
+    array = array_cls([])
+    ut.assert_equal(list(array), [])
+    ut.assert_equal(array, [])
+
+    array = array_cls([2, 9, 4])
+    ut.assert_equal(pickle.loads(pickle.dumps(array)), [2, 9, 4])
+
+    # Tests the matrix.
+    matrix = matrix_cls([(1, 2, 3), (4, 5, 6)])
+    ut.assert_equal(matrix.width(), 3)
+    ut.assert_equal(matrix.height(), 2)
+    ut.assert_equal(len(matrix), 2)
+    ut.assert_equal(list(matrix), [(1, 2, 3), (4, 5, 6)])
+
+    matrix = matrix.transpose()
+    ut.assert_equal(matrix.width(), 2)
+    ut.assert_equal(matrix.height(), 3)
+    ut.assert_equal(len(matrix), 3)
+    ut.assert_equal(list(matrix), [(1, 4), (2, 5), (3, 6)])
+
+    matrix = matrix.transpose()
+    ut.assert_equal(matrix.width(), 3)
+    ut.assert_equal(matrix.height(), 2)
+    ut.assert_equal(list(matrix), [(1, 2, 3), (4, 5, 6)])
+
+    ut.assert_equal(pickle.loads(pickle.dumps(matrix)), [(1, 2, 3), (4, 5, 6)])
+
+def _test_feedforward_and_backpropagate (ut, feedforward_cls=Feedforward, backpropagate_cls=Backpropagate) :
     import random
 
-    from nlplib.core.model import NeuralNetwork
+    from nlplib.core.model import Database, NeuralNetwork
 
     random.seed(0)
 
-    nn = NeuralNetwork('abc', 3, 'def')
+    nn = NeuralNetwork('abc', 3, 'def', name='foo')
 
     def train (inputs, outputs) :
 
@@ -148,13 +232,29 @@ def __test__ (ut, feedforward_cls=Feedforward, backpropagate_cls=Backpropagate) 
                        [('0.98019596', 'f'), ('0.01948382', 'e'),  ('-0.04068978', 'd')],
                        [('0.90101923', 'd'), ('0.63745278', 'e'),  ('-0.01855872', 'f')]]
 
-    for inputs, correct_output in zip(['a', 'b', 'c', 'ab', 'ac', 'bc'], correct_outputs) :
-        output_layer = feedforward_cls(nn._structure, nn._structure.input_indexes_for_objects(inputs))()
+    def test_outputs (nn) :
+        for inputs, correct_output in zip(['a', 'b', 'c', 'ab', 'ac', 'bc'], correct_outputs) :
+            output_layer = feedforward_cls(nn._structure, nn._structure.input_indexes_for_objects(inputs))()
 
-        actual_output = [('%.8f' % charge, object)
-                         for object, charge in zip(output_layer.objects(), output_layer.charges)]
+            actual_output = [('%.8f' % charge, object)
+                             for object, charge in zip(output_layer.objects(), output_layer.charges)]
 
-        ut.assert_equal(sorted(actual_output, reverse=True), correct_output)
+            ut.assert_equal(sorted(actual_output, reverse=True), correct_output)
+
+    test_outputs(nn)
+
+    # Test that all of the weights are being persisted properly
+    db = Database()
+    with db as session :
+        session.add(nn)
+
+    with db as session :
+        nn_from_db = session.access.nn('foo')
+        test_outputs(nn_from_db)
+
+def __test__ (ut) :
+    _test_collections(ut)
+    _test_feedforward_and_backpropagate(ut)
 
 if __name__ == '__main__' :
     from nlplib.general.unittest import UnitTest

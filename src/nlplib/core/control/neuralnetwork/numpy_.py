@@ -4,12 +4,41 @@
 
 import numpy
 
-from nlplib.core.control.neuralnetwork import Feedforward as NLPLibFeedforward, Backpropagate as NLPLibBackpropagate
+from nlplib.core.control import neuralnetwork as python
 from nlplib.general import composite
 
-__all__ = ['Feedforward', 'Backpropagate']
+__all__ = ['Array', 'Matrix', 'Feedforward', 'Backpropagate']
 
-class Feedforward (NLPLibFeedforward) :
+class Array (python.Array) :
+
+    __slots__ = ('_values',)
+
+    def __init__ (self, values=()) :
+        self._values = numpy.array(list(values))
+
+class Matrix (python.Matrix) :
+
+    __slots__ = ('_values',)
+
+    def __init__ (self, values=()) :
+        self._values = numpy.matrix(list(values))
+
+    def __iter__ (self) :
+        for row in self._values :
+            yield tuple(row.flat)
+
+    def transpose (self) :
+        matrix = self.__class__.__new__(self.__class__)
+        matrix._values = self._values.transpose()
+        return matrix
+
+    def width (self) :
+        return self._values.shape[1]
+
+    def height (self) :
+        return self._values.shape[0]
+
+class Feedforward (python.Feedforward) :
     ''' A fast implementation of the feedforward neural network algorithm, using the NumPy library. '''
 
     def _feedforward (self) :
@@ -31,7 +60,7 @@ class Feedforward (NLPLibFeedforward) :
         inputs._charges._values[list(self.input_indexes)] = self.active
         inputs._charges = inputs._charges
 
-class Backpropagate (NLPLibBackpropagate) :
+class Backpropagate (python.Backpropagate) :
     ''' A fast implementation of the backpropagation neural network training algorithm, using the NumPy library. '''
 
     def _total_error (self, differences) :
@@ -52,6 +81,9 @@ class Backpropagate (NLPLibBackpropagate) :
         differences = correct - outputs._charges._values
 
         outputs._errors._values[:] = activation_derivative(outputs._charges._values) * differences
+
+        # Due to a quirk in SQLAlchemy, mutations may not get written to the database. Reassigning the name, makes sure
+        # that the mutations are recorded.
         outputs._errors = outputs._errors
 
         return differences
@@ -68,6 +100,8 @@ class Backpropagate (NLPLibBackpropagate) :
             errors = self._excitement_error(connection, outputs.errors)
 
             inputs._errors._values[:] = activation_derivative(inputs._charges._values) * errors
+
+            # This step is necessary, see the comment in <Backpropagate._output_errors>.
             inputs._errors = inputs._errors
 
     def _update_connection_weights (self) :
@@ -75,43 +109,18 @@ class Backpropagate (NLPLibBackpropagate) :
             weights = self.rate * (inputs._charges._values * outputs._errors._values[:,numpy.newaxis])
 
             connection._weights._values += weights
+
+            # This step is necessary, see the comment in <Backpropagate._output_errors>.
             connection._weights = connection._weights
 
 def __test__ (ut) :
-    from nlplib.core.control.neuralnetwork import __test__
+    from nlplib.core.control.neuralnetwork import _test_collections, _test_feedforward_and_backpropagate
 
-    return __test__(ut, feedforward_cls=Feedforward, backpropagate_cls=Backpropagate)
-
-def __profile__ () :
-    import random
-
-    from nlplib.core.model import NeuralNetwork
-    from nlplib.general import timing
-
-    size  = 1000
-    loops = 1
-
-    random.seed(0)
-    nn = NeuralNetwork(size, size, size)
-
-    @timing
-    def nlplib () :
-        for _ in range(loops) :
-            NLPLibBackpropagate(nn._structure, [0, 1, 2], [3, 4])()
-
-    random.seed(0)
-    nn = NeuralNetwork(size, size, size)
-
-    @timing
-    def numpy () :
-        for _ in range(loops) :
-            Backpropagate(nn._structure, [0, 1, 2], [3, 4])()
-
-    nlplib()
-    numpy()
+    # The same tests work for the NumPy neural network algorithms.
+    _test_collections(ut, array_cls=Array, matrix_cls=Matrix)
+    _test_feedforward_and_backpropagate(ut, feedforward_cls=Feedforward, backpropagate_cls=Backpropagate)
 
 if __name__ == '__main__' :
     from nlplib.general.unittest import UnitTest
     __test__(UnitTest())
-    __profile__()
 

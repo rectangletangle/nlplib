@@ -93,7 +93,7 @@ class Scraped (Base) :
             with opener.open(request_url) as page :
                 response = Response(url=page.geturl(), text=page.read().decode(self.encoding), request_url=request_url)
                 return self._could_open_url(response)
-        except URLError as exc :
+        except (UnicodeError, URLError) as exc :
             return self.could_not_open_url(exc, request_url)
 
     def _could_open_url (self, response) :

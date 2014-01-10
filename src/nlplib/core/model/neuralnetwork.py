@@ -3,7 +3,6 @@
 import itertools
 
 from nlplib.core.control.neuralnetwork.structure import StaticLayer, StaticIOLayer, LayerConfiguration, random_weights
-from nlplib.core.control.neuralnetwork import Feedforward, Backpropagate, collection
 from nlplib.core.control.score import Score
 from nlplib.core.model.naturallanguage import Seq
 from nlplib.core.model.base import Model
@@ -11,6 +10,13 @@ from nlplib.core.base import Base
 from nlplib.core import exc
 from nlplib.general.iterate import truncated, paired
 from nlplib.general import math
+
+try :
+    # An attempt is made to import accelerated versions of the neural network algorithms that utilize NumPy.
+    from nlplib.core.control.neuralnetwork.numpy_ import Array, Matrix, Feedforward, Backpropagate
+except ImportError :
+    # Fall back to the slower pure Python versions, if NumPy isn't installed.
+    from nlplib.core.control.neuralnetwork import Array, Matrix, Feedforward, Backpropagate
 
 __all__ = ['NeuralNetwork', 'Layer', 'Connection', 'NeuralNetworkIO']
 
@@ -117,8 +123,8 @@ class _MakeStructure (Base) :
         else :
             size = len(list(config))
 
-        layer._charges = collection.Array([0.0] * size)
-        layer._errors  = collection.Array([0.0] * size)
+        layer._charges = Array([0.0] * size)
+        layer._errors  = Array([0.0] * size)
 
         return layer
 
@@ -146,8 +152,8 @@ class _MakeStructure (Base) :
             width  = len(input_layer)
             height = len(output_layer)
 
-            connection._weights = collection.Matrix(tuple(next(weights, 0.0) for _ in range(width))
-                                                    for _ in range(height))
+            connection._weights = Matrix(tuple(next(weights, 0.0) for _ in range(width))
+                                         for _ in range(height))
 
 class Structure (Model) :
     def __init__ (self, config, weights) :
@@ -220,8 +226,8 @@ class Layer (Element) :
         super().__init__(structure)
         self.structure.layers.append(self)
 
-        self._charges = collection.Array()
-        self._errors  = collection.Array()
+        self._charges = Array()
+        self._errors  = Array()
 
         self.io = []
 
@@ -251,7 +257,7 @@ class Connection (Element) :
         super().__init__(structure)
         self.structure.connections.append(self)
 
-        self._weights = collection.Matrix()
+        self._weights = Matrix()
 
     def __iter__ (self) :
         return iter(self._weights)

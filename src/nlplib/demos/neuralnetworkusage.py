@@ -1,5 +1,4 @@
 
-
 if __name__ == '__main__' :
 
     import random
@@ -52,7 +51,7 @@ if __name__ == '__main__' :
         session.add(nn)
 
     with db as session :
-        # Here we retrieve the network from the database. The shortened form <session.access.nn> can be also used here.
+        # Here we retrieve the network from the database. The shortened form <session.access.nn> can also be used here.
         nn_from_db = session.access.neural_network('some neural network')
 
         print('testing a and b, again')

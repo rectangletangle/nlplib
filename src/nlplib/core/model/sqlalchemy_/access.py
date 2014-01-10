@@ -35,7 +35,7 @@ class Access (abstract.Access) :
                 yield match
 
     def neural_network (self, name) :
-        return self.session._sqlalchemy_session.query(NeuralNetwork).filter_by(name=str(name)).first()
+        return self.session._sqlalchemy_session.query(NeuralNetwork).filter_by(name=name).first()
 
 def __test__ (ut) :
     from nlplib.core.model.abstract.access import abstract_test

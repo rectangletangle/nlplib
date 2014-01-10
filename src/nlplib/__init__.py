@@ -10,6 +10,7 @@ __download_url__ = 'github.com/rectangletangle/nlplib'
 __licence__      = 'Simplified BSD License'
 
 try :
+
     from nlplib.general.iterate import windowed, chunked, paired, flattened
     from nlplib.general.scrape import Scraped, scraper, CouldNotOpenURL
     from nlplib.general.thread import simultaneously
@@ -22,13 +23,15 @@ try :
     from nlplib.core.exc import NLPLibError
     from nlplib.core.control.score import Score, Scored, ScoredAgainst
     from nlplib.core.control.neuralnetwork.structure import StaticLayer, StaticIOLayer
+
     try :
         from nlplib.core.process.token import nltk_tokenized
     except ImportError :
         ...
 
     from nlplib.data import builtin_db
+
 except ImportError :
-    # This occurs when setup.py imports version information, right before nlplib is installed.
+    # This occurs when setup.py imports version information, just before nlplib is installed.
     ...
 

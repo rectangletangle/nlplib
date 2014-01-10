@@ -28,7 +28,7 @@ def __demo__ (ut) :
         patterns = usable(seqs_known_to_neural_network(nn), session.access.all_documents(), gram_size=2)
 
     plot([nn.train(input_words, output_words, rate=0.1) for input_words, output_words in patterns],
-         sample_size=100)
+         sample_size=10)
 
     def ask (string) :
         with builtin_db() as session :

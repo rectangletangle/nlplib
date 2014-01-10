@@ -1,9 +1,9 @@
 ''' This tests the models. '''
 
-
 import random
 
 from nlplib.core.process.index import Indexed
+from nlplib.core.model.exc import StorageError
 from nlplib.core.model import Database, Document, Word, NeuralNetwork, Layer, NeuralNetworkIO
 
 def _test_document (ut) :
@@ -133,10 +133,66 @@ def _test_neural_network_methods (ut) :
 
     tests(nn)
 
+def _test_neural_network_names (ut) :
+
+    db = Database()
+
+    with db as session :
+        session.add(NeuralNetwork(3, 3))
+        session.add(NeuralNetwork(4, 4))
+        session.add(NeuralNetwork(4, 4, name=['a', 'b']))
+        session.add(NeuralNetwork(4, 4, name='a'))
+        session.add(NeuralNetwork(4, 4, name=1))
+        session.add(NeuralNetwork(4, 4, name={'a' : 0, 1 : 'b'}))
+
+    @db
+    def add_non_unique_name (session) :
+         session.add(NeuralNetwork(4, 4, name='a'))
+
+    ut.assert_raises(add_non_unique_name, StorageError)
+
+    @db
+    def add_complex_non_unique_name (session) :
+         session.add(NeuralNetwork(4, 4, name=['a', 'b']))
+
+    ut.assert_raises(add_complex_non_unique_name, StorageError)
+
+    with db as session :
+        ut.assert_equal(len(list(session.access.all_neural_networks())), 6)
+
+        nn_a = session.access.nn('a')
+        nn_a_again = session.access.nn('a')
+        ut.assert_true(nn_a is not None)
+        ut.assert_true(nn_a is nn_a_again)
+
+        nn_a_b = session.access.nn(['a', 'b'])
+        ut.assert_true(nn_a_b is not None)
+
+        nn_none = session.access.nn(None)
+        ut.assert_true(nn_none is not None)
+
+        nn_one = session.access.neural_network(1)
+        ut.assert_true(nn_one is not None)
+
+        dict_nn = session.access.neural_network({'a' : 0, 1 : 'b'})
+        ut.assert_equal(dict_nn.name, {'a' : 0, '1' : 'b'})
+
+        ut.assert_equal(len({id(nn) for nn in [nn_a, nn_a_b, nn_none, nn_one, dict_nn]}), 5)
+
+    db = Database()
+
+    with db as session :
+        session.add(NeuralNetwork(4, 4, name='a'))
+        session.add(NeuralNetwork(4, 4, name='b'))
+
+    with db as session :
+        ut.assert_true(session.access.nn(None) is None)
+
 def __test__ (ut) :
     _test_document(ut)
     _test_neural_network_io(ut)
     _test_neural_network_methods(ut)
+    _test_neural_network_names(ut)
 
 if __name__ == '__main__' :
     from nlplib.general.unittest import UnitTest

@@ -43,7 +43,8 @@ packages = ['nlplib',
             'nlplib.exterior.scrape',
             'nlplib.general',
             'nlplib.data',
-            'nlplib.scripts']
+            'nlplib.scripts',
+            'nlplib.demos']
 
 setup(name = 'nlplib',
 

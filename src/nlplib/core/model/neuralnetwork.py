@@ -2,12 +2,11 @@
 
 import itertools
 
-from nlplib.core.control.neuralnetwork.structure import StaticLayer, StaticIOLayer, LayerConfiguration, random_weights
+from nlplib.core.control.neuralnetwork.structure import MakeStructure, random_weights
 from nlplib.core.control.score import Score
 from nlplib.core.model.naturallanguage import Seq
 from nlplib.core.model.base import Model
 from nlplib.core.base import Base
-from nlplib.core import exc
 from nlplib.general.iterate import truncated, paired
 from nlplib.general import math
 
@@ -18,7 +17,7 @@ except ImportError :
     # Fall back to the slower pure Python versions, if NumPy isn't installed.
     from nlplib.core.control.neuralnetwork import Array, Matrix, Feedforward, Backpropagate
 
-__all__ = ['NeuralNetwork', 'Layer', 'Connection', 'NeuralNetworkIO']
+__all__ = ['NeuralNetwork', 'Structure', 'Element', 'Layer', 'Connection', 'NeuralNetworkIO']
 
 class NeuralNetwork (Model) :
     def __init__ (self, *config, name=None, weights=random_weights) :
@@ -31,9 +30,6 @@ class NeuralNetwork (Model) :
             return super().__repr__(self.name, *args, **kw)
         else :
             return super().__repr__(*args, **kw)
-
-    def __getitem__ (self, object) : # todo : make get value
-        raise NotImplementedError
 
     def __contains__ (self, object) :
         return object in tuple(self)
@@ -71,89 +67,7 @@ class NeuralNetwork (Model) :
         raise NotImplementedError
 
     def _associated (self, session) :
-        return [self._structure]
-
-class NeuralNetworkConfigurationError (exc.NLPLibError) :
-    pass
-
-class NeuralNetworkConfiguration (Base) :
-    __slots__ = ('_layer_configurations',)
-
-    def __init__ (self, *configs) :
-        if len(configs) < 2 :
-            raise NeuralNetworkConfigurationError('The neural network must have at least two layers.')
-
-        self._layer_configurations = list(self._make_layer_configurations(configs))
-
-    def _make_layer_configurations (self, configs) :
-        for config in configs :
-            if isinstance(config, int) :
-                yield StaticLayer(config)
-            elif not isinstance(config, LayerConfiguration) :
-                yield StaticIOLayer(config)
-            else :
-                yield config
-
-    def __iter__ (self) :
-        return iter(self._layer_configurations)
-
-    def __getitem__ (self, index) :
-        return self._layer_configurations[index]
-
-    def hidden (self) :
-        return self._layer_configurations[1:-1]
-
-class _MakeStructure (Base) :
-
-    def __init__ (self, structure, config, weights) :
-        self.structure = structure
-        self.config = config
-        self.weights = weights
-
-    def __call__ (self) :
-        self._connect(self._layers())
-
-    def _make_layer (self, config) :
-        layer = Layer(self.structure)
-
-        if isinstance(config, StaticIOLayer) :
-            ios = [NeuralNetworkIO(self.structure, object) for object in config]
-            layer.io.extend(ios)
-            size = len(ios)
-        else :
-            size = len(list(config))
-
-        layer._charges = Array([0.0] * size)
-        layer._errors  = Array([0.0] * size)
-
-        return layer
-
-    def _layers (self) :
-        yield self._make_layer(self.config[0])
-
-        for config in self.config[1:-1] :
-            yield self._make_layer(config)
-
-        yield self._make_layer(self.config[-1])
-
-    def _initial_weights (self) :
-        if callable(self.weights) :
-            return self.weights()
-        else :
-            return (self.weights for _ in itertools.count())
-
-    def _connect (self, layers) :
-        weights = self._initial_weights()
-
-        for input_layer, output_layer in paired(layers) :
-
-            connection = Connection(self.structure)
-
-            width  = len(input_layer)
-            height = len(output_layer)
-
-            connection._weights = Matrix(tuple(next(weights, 0.0) for _ in range(width))
-                                         for _ in range(height))
+        yield self._structure
 
 class Structure (Model) :
     def __init__ (self, config, weights) :
@@ -163,7 +77,7 @@ class Structure (Model) :
         self.connections = []
 
         if len(config) :
-            _MakeStructure(self, NeuralNetworkConfiguration(*config), weights)()
+            MakeStructure(self, config, weights)()
 
     def __iter__ (self) :
         for (input_layer, output_layer), connection in zip(paired(self.layers), self.connections) :
@@ -171,9 +85,6 @@ class Structure (Model) :
 
     def __reversed__ (self) :
         return reversed(list(self))
-
-    def _associated (self, session) :
-        return self.elements
 
     def input_indexes_for_objects (self, objects) :
         # todo : this could be done more efficiently
@@ -214,6 +125,9 @@ class Structure (Model) :
 
         raise NotImplementedError # todo :
 
+    def _associated (self, session) :
+        return self.elements
+
 class Element (Model) :
     ''' This is a base class structural neural network elements, e.g., links, nodes, or IO nodes. '''
 
@@ -251,6 +165,9 @@ class Layer (Element) :
     def objects (self) :
         for io in self.io :
             yield io.object
+
+    def _associated (self, session) :
+        return self.io
 
 class Connection (Element) :
     def __init__ (self, structure) :

@@ -1,6 +1,5 @@
 
 
-
 import nlplib.core.model
 
 from nlplib.core.process.token import split
@@ -13,12 +12,12 @@ class Window (Base) :
 
     __slots__ = ('before', 'after')
 
-    def __init__ (self, before=0, after=2) :
+    def __init__ (self, before=None, after=None) :
         ''' before : how many words/characters before the concordance you can see
             after  : how many words/characters after the concordance you can see '''
 
-        self.before = before
-        self.after  = after
+        self.before = before if before is not None else 0
+        self.after  = after if after is not None else 2
 
     def __repr__ (self, *args, **kw) :
         return super().__repr__(before=self.before, after=self.after, *args, **kw)
@@ -60,7 +59,10 @@ class Concordance (Base) :
             raw_string = str(document)[index.first_character:index.last_character+1]
             yield (document, index, raw_string)
 
-    def gram_tuples (self, window=Window(), splitter=split) :
+    def gram_tuples (self, before=None, after=None, splitter=split) :
+
+        window = Window(before=before, after=after)
+
         already_split_documents = {}
         for document, index, seq in self :
             try :
@@ -130,7 +132,7 @@ def __test__ (ut) :
 
         ut.assert_equal(list(concordance_of_is_a), list(is_a.concordance()))
 
-        grams_for_concordance = concordance_of_is_a.grams(window=Window(before=1, after=2))
+        grams_for_concordance = concordance_of_is_a.grams(before=1, after=2)
         correct_strings = ['Python is a widely used', 'Python is a significant fork']
         for gram, correct_string in zip(grams_for_concordance, correct_strings) :
             ut.assert_equal(gram, Gram(correct_string))
@@ -159,3 +161,4 @@ def __test__ (ut) :
 if __name__ == '__main__' :
     from nlplib.general.unittest import UnitTest
     __test__(UnitTest())
+

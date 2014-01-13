@@ -44,15 +44,16 @@ def chop (iterable, size) :
             else :
                 yield chunk
 
-def generates (generator) :
-    ''' If a generator doesn't generate anything this returns <None>, otherwise it returns an equivalent generator. '''
+def generates (generator, default=None) :
+    ''' If a generator doesn't generate anything this returns the <default> (None), otherwise it returns an equivalent
+        generator. '''
 
     iterable = iter(generator)
 
     try :
         first = next(iterable)
     except StopIteration :
-        return None
+        return default
     else :
         return itertools.chain((first,), iterable)
 

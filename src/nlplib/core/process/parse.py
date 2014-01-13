@@ -5,29 +5,17 @@ from nlplib.core.process import stem
 from nlplib.core.model import Word, Gram, Index
 from nlplib.general.iterate import windowed
 from nlplib.core.base import Base
-from nlplib.core.exc import NLPLibError
 
-__all__ = ['DontParse', 'HitStopSeq', 'Parsed']
-
-class DontParse (NLPLibError) :
-    pass
-
-class HitStopSeq (DontParse) :
-    pass
+__all__ = ['Parsed']
 
 class Parsed (Base) :
-    def __init__ (self, document, stop_seqs=None, max_gram_length=1, yield_grams=True, stem=stem.clean,
-                  tokenize=re_tokenized) :
+    def __init__ (self, document, max_gram_length=1, stem=stem.clean, tokenize=re_tokenized) :
 
         self.document = document
 
-        self.stop_seqs = set() if stop_seqs is None else set(stop_seqs)
-
         self.max_gram_length = max_gram_length
-        self.yield_grams     = yield_grams
 
         self.stem = stem
-
         self.tokenize = tokenize
 
     def __repr__ (self, *args, **kw) :
@@ -37,17 +25,15 @@ class Parsed (Base) :
         unique_seqs = {}
 
         for stems, tokens in self._parse() :
-            try :
-                seq = self._seq(stems)
-            except DontParse :
-                continue
-            else :
-                # This makes sure that sequences that have the same string value map to a single sequence instance.
-                seq = unique_seqs.setdefault(str(seq), seq)
 
-                self._add_index(seq, tokens)
+            seq = self._make_seq(stems)
 
-                yield seq
+            # This makes sure that sequences that have the same string value map to a single sequence instance.
+            seq = unique_seqs.setdefault(str(seq), seq)
+
+            self._add_index(seq, tokens)
+
+            yield seq
 
     def _stem_tokens (self, tokens) :
         for token in tokens :
@@ -71,31 +57,10 @@ class Parsed (Base) :
             for stems_and_tokens in self._sub_grams(window) :
                 stems, tokens = zip(*stems_and_tokens)
 
-                try :
-                    self._check_if_is_stop_seq(stems)
-                except HitStopSeq :
-                    break
-                else :
-                    yield (stems, tokens)
+                yield (stems, tokens)
 
-    def _check_if_is_stop_seq (self, gram_tuple) :
-
-        string_or_gram_tuple = gram_tuple if len(gram_tuple) != 1 else gram_tuple[0]
-
-        if string_or_gram_tuple in self.stop_seqs :
-            raise HitStopSeq
-
-    def _gram (self, gram_tuple) :
-        if self.yield_grams :
-            return Gram(gram_tuple)
-        else :
-            raise DontParse
-
-    def _word (self, word_string) :
-        return Word(word_string)
-
-    def _seq (self, strings) :
-        return self._word(strings[0]) if len(strings) == 1 else self._gram(strings)
+    def _make_seq (self, stems) :
+        return Word(stems[0]) if len(stems) == 1 else Gram(stems)
 
     def _add_index (self, seq, tokens) :
         first_token, last_token = (tokens[0], tokens[-1])
@@ -123,7 +88,7 @@ def __test__ (ut) :
         session.add(Document(text))
 
     with db as session :
-        parsed = Parsed(list(session.access.all_documents())[0], max_gram_length=max_gram_length,
+        parsed = Parsed(list(session.access.all_documents())[0], max_gram_length=max_gram_length, stem=stem.clean,
                              tokenize=re_tokenized)
         unique_seqs = set(parsed)
 
@@ -156,19 +121,6 @@ def __test__ (ut) :
         ut.assert_true(seq.count == len(seq.indexes) == correct_index_count)
 
     ut.assert_equal(parsed_string(string), 'and the cat ate the food and')
-
-    # Testing with stop sequences
-    ut.assert_equal(parsed_string(string, stop_seqs={'the', 'ate'}), 'and cat food and')
-
-    # No actual stemming is done if the <str> function is used in place of a stemmer.
-    ut.assert_equal(parsed_string(string, stem=str, stop_seqs={'The', 'ate'}), 'And cat the foOd and')
-
-    # todo : make remove *entire* stop gram
-    # todo : make Seperate StopWordsRemoved class
-    string = 'the and the and if the and the the and platypus the'
-    ut.assert_equal(parsed_string(string, max_gram_length=2, yield_grams=False,
-                                  stop_seqs={('and', 'the'), 'platypus'}),
-                    'the the and if the the the and the')
 
 if __name__ == '__main__' :
     from nlplib.general.unittest import UnitTest

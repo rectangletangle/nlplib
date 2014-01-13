@@ -8,26 +8,8 @@ from nlplib.general.represent import pretty_truncate, represented_literally
 from nlplib.general import composite
 from nlplib.core.base import Base
 
-def _SeqsMixin (Base) : # todo :
-    def seqs_only (self) :
-        for seq in self.seqs :
-            if seq._is_seq :
-                yield seq
-
-    def words (self) :
-        for word in self.seqs :
-            if word._is_word :
-                yield word
-
-    def grams (self) :
-        for gram in self.seqs :
-            if gram._is_gram :
-                yield gram
-
 class Document (Model) :
     ''' A class for textual documents. '''
-
-    # todo : make take parsed config, similar to nn structure config
 
     def __init__ (self, string, word_count=None, title=None, url=None, created_on=None) :
         self.string = string
@@ -37,7 +19,7 @@ class Document (Model) :
         self.url        = url
         self.created_on = created_on
 
-        self.seqs = [] # todo : make composite property from indexed
+        self.seqs = []
 
     def __repr__ (self, *args, **kw) :
         return super().__repr__(pretty_truncate(self.string.replace('\n', ' '), 35), *args, **kw)
@@ -53,6 +35,21 @@ class Document (Model) :
 
     def __len__ (self) :
         return len(self.string)
+
+    def seqs_only (self) :
+        for seq in self.seqs :
+            if seq._is_seq :
+                yield seq
+
+    def words (self) :
+        for word in self.seqs :
+            if word._is_word :
+                yield word
+
+    def grams (self) :
+        for gram in self.seqs :
+            if gram._is_gram :
+                yield gram
 
     def _associated (self, session) :
         for index, seq in session.access.indexes(self) :

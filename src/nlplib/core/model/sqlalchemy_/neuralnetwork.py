@@ -18,7 +18,7 @@ except ImportError :
     # Fall back to the slower pure Python versions, if NumPy isn't installed.
     from nlplib.core.control.neuralnetwork import Array, Matrix
 
-def _encode_in_json_format (value) :
+def _encoded_in_json_format (value) :
     return json.dumps(value, separators=(',', ':'))
 
 class _JSONType (TypeDecorator) :
@@ -28,7 +28,7 @@ class _JSONType (TypeDecorator) :
     def process_bind_param (self, value, dialect) :
         if value is not None :
             try :
-                return _encode_in_json_format(value)
+                return _encoded_in_json_format(value)
             except TypeError :
                 raise StorageError('Objects in neural network must be nlplib models or serializable using '
                                    '<json.dumps>.')

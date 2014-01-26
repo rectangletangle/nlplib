@@ -12,7 +12,7 @@ compatible with older versions of Python.
 
 ## Dependencies :
 *   Python 3.3
- 
+
     The library depends on new syntax introduced in Python 3.3, older versions of Python will **not** work.
 
 *   SQLAlchemy 0.9.1
@@ -26,15 +26,15 @@ compatible with older versions of Python.
     This is used for parsing HTML collected by the web-scrapers, everything in the core will run fine           without this.
 
 *   NumPy 1.8.0
-    
-    Everything will run fine without NumPy installed; however, having it installed will make certain neural     network algorithms run _much_ faster
+
+    Everything will run fine without NumPy installed; however, having it installed will make certain neural     network algorithms run _much_ faster.
 
 *   NLTK 3.0
 
     There are a few convenience functions that integrate with NLTK. However, it's not entirely necessary.
 
-*   matplotlib 1.2.1 
-    
+*   matplotlib 1.2.1
+
     This is only needed to see graphical plots of certain outputs. If it's not installed, the plots simply      won't be displayed.
 
 ## Installation :

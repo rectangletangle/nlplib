@@ -1,12 +1,12 @@
 ''' Tools for scraping text from the internet. '''
 
 
-from functools import wraps
+import functools
+
 from urllib.request import build_opener, URLError
 
-from nlplib.general.represent import pretty_truncate
+from nlplib.general.represent import pretty_truncate, pretty_string
 from nlplib.general.thread import simultaneously
-from nlplib.general.iterate import chunked
 from nlplib.core.base import Base
 from nlplib.core.exc import NLPLibError
 
@@ -27,7 +27,7 @@ class Response (Base) :
         self.request_url = request_url if request_url is not None else self.url
 
     def __repr__ (self, *args, **kw) :
-        return super().__repr__(url=self.url, text=pretty_truncate(self.text), *args, **kw)
+        return super().__repr__(pretty_string(self.url), text=pretty_truncate(self.text), *args, **kw)
 
     def __str__ (self) :
         return self.text
@@ -42,46 +42,72 @@ class Response (Base) :
         return hash((self.url, self.text, self.request_url))
 
 class Scraped (Base) :
-    ''' A base web scraper class. '''
+    ''' The web scraper class.
 
-    # todo : unify serial chunk_size and max_workers
+        urls : An iterable of URL strings; this can be an infinite generator.
 
-    def __init__ (self, urls, silent=False, revisit=True, chunk_size=20, max_workers=None, serial=False,
-                  user_agent='nlplib', encoding='utf-8', visited_urls=()) :
+        silent : If this is true, the scraper will ignore URLs that it can't open/handle.
+
+        max_workers : The amount of worker threads to use when scraping concurrently, if the <serial> argument is true
+        this will be ineffectual.
+
+        revisit : If true, the scraper will revisit duplicate URLs.
+
+        serial : This makes the scraper scrape from the URLs serially, as opposed to concurrently.
+
+        user_agent : The value for the user-agent HTTP header.
+
+        encoding : The text encoding scheme. '''
+
+    def __init__ (self, urls, silent=False, max_workers=20, revisit=True, serial=False, user_agent='nlplib',
+                  encoding='utf-8') :
 
         self.urls = urls
+
         self.silent = silent
         self.revisit = revisit
 
-        self.chunk_size  = chunk_size
         self.max_workers = max_workers
-        self.serial      = serial
+        self.serial = serial
 
         self.user_agent = user_agent
         self.encoding = encoding
 
-        self.visited_urls = set(visited_urls)
+        self._visited_urls = set()
 
     def __iter__ (self) :
-        self.visited_urls.clear()
+        self._visited_urls.clear()
 
         opener = self._make_opener()
 
-        for urls in chunked(self.urls, self.chunk_size, trail=True) :
-            responses = []
+        scraping_functions = (lambda url=url : self._scrape(opener, url)
+                              for url in self.urls)
 
-            scraping_functions = (lambda url=url : responses.append(self._scrape(opener, url))
-                                  for url in urls)
+        if self.serial :
+            responses = (function() for function in scraping_functions)
+        else :
+            responses = simultaneously(scraping_functions, max_workers=self.max_workers)
 
-            if not self.serial :
-                simultaneously(scraping_functions, max_workers=self.max_workers)
-            else :
-                for function in scraping_functions :
-                    function()
+        for response in responses :
+            if response is not None :
+                yield response
 
-            for response in responses :
-                if response is not None :
-                    yield response
+    def not_been_at_url_before (self, response) :
+        ''' The behavior for when the scraper gets a response from a URL it hasn't seen before. '''
+
+        return response
+
+    def been_at_url_before (self, response) :
+        ''' Behavior for when the scraper gets a response from a URL it has seen before. '''
+
+        pass
+
+    def could_not_open_url (self, exc, url) :
+        ''' Behavior for when the scraper couldn't get a response from the url. If the <silent> attribute is
+            false (the default), this will throw exceptions. '''
+
+        if not self.silent :
+            raise CouldNotOpenURL(str(exc) + '\nhappened with the url : %s' % str(url))
 
     def _make_opener (self) :
         opener = build_opener()
@@ -97,41 +123,33 @@ class Scraped (Base) :
             return self.could_not_open_url(exc, request_url)
 
     def _could_open_url (self, response) :
-        if response.url in self.visited_urls :
+        if response.url in self._visited_urls :
             return self.been_at_url_before(response)
         else :
             if not self.revisit :
-                self.visited_urls.add(response.url)
+                self._visited_urls.add(response.url)
 
             return self.not_been_at_url_before(response)
 
-    def not_been_at_url_before (self, response) :
-        ''' The behavior for when the scraper gets a response from a URL it hasn't seen before. '''
-
-        return response
-
-    def been_at_url_before (self, response) :
-        ''' Behavior for when the scraper gets a response from a URL it has seen before. '''
-
-        pass
-
-    def could_not_open_url (self, exc, url) :
-        ''' Behavior when a scraper couldn't get a response from a url. If the <silent> attribute is
-            false (the default), this will throw errors. '''
-
-        if not self.silent :
-            raise CouldNotOpenURL(str(exc) + '\nhappened with the url : %s' % str(url))
-
-def scraper (*args, cls=Scraped, **kw) :
-    ''' This takes a generator function that yields URLs, and makes it yield responses from those URLs. The <Scraped>
-        class has been specifically designed to allow for the use of infinite generator functions. '''
+def scraper (generator=None, *args, cls=Scraped, **kw) :
+    ''' This decorator takes a generator function that yields URLs, and makes it yield the responses from those URLs.
+        The <Scraped> class has been specifically designed to allow for the use of infinite generator functions. '''
 
     def wrapper (generator) :
-        @wraps(generator)
+        @functools.wraps(generator)
         def with_generator (*wrapped_args, **wrapped_kw) :
             return cls(generator(*wrapped_args, **wrapped_kw), *args, **kw)
         return with_generator
-    return wrapper
+
+    if callable(generator) :
+        # This allows the decorator to be used without arguments.
+        # @scraper
+        # def foo () :
+        #     ...
+
+        return wrapper(generator)
+    else :
+        return wrapper
 
 def __test__ (ut) :
     from nlplib.general.unittest import mock
@@ -145,7 +163,7 @@ def __test__ (ut) :
                                         read=lambda : b'\xc3\x9c\xc3\x9c\xc3\x9c')}
 
     def mocked (cls) :
-        # A mockup is made, so that the test doesn't depend on external resources (the internet).
+        # A mockup is made, so that this test doesn't depend on external resources (the internet).
 
         def open_ (url) :
             def enter (*args, **kw) :
@@ -164,55 +182,71 @@ def __test__ (ut) :
 
     all_ = {Response('a', 'aaa', 'a'), Response('b', 'bbb', 'b'), Response('c', 'ccc', 'c'), Response('d', 'ddd', 'd')}
 
-    scraped = mocked(Scraped)(['a', 'b', 'c'])
-    ut.assert_equal(set(scraped), {Response('a', 'aaa', 'a'), Response('b', 'bbb', 'b'), Response('c', 'ccc', 'c')})
-    scraped.urls.append('d')
-    ut.assert_equal(set(scraped), all_)
+    for kw in [{'serial' : False}, {'serial' : True}] :
+        scraped = mocked(Scraped)(['a', 'b', 'c'], **kw)
+        ut.assert_equal(set(scraped), {Response('a', 'aaa', 'a'), Response('b', 'bbb', 'b'), Response('c', 'ccc', 'c')})
+        scraped.urls.append('d')
+        ut.assert_equal(set(scraped), all_)
 
-    # Test with generated URLs
-    gen_urls = (url for url in 'abcd')
-    gen_scraped = mocked(Scraped)(gen_urls)
-    ut.assert_equal(set(gen_scraped), all_)
-    ut.assert_equal(set(gen_scraped), set())
+        # Test with generated URLs
+        gen_urls = (url for url in 'abcd')
+        gen_scraped = mocked(Scraped)(gen_urls, **kw)
+        ut.assert_equal(set(gen_scraped), all_)
+        ut.assert_equal(set(gen_scraped), set())
 
-    cant_scrape = mocked(Scraped)(['e'], silent=False)
-    ut.assert_raises(lambda : set(cant_scrape), CouldNotOpenURL)
+        # The response text should be three uppercase Us with umlauts.
+        scraped = mocked(Scraped)([b'\xc3\x9c'.decode()], encoding='utf-8', **kw)
+        ut.assert_equal(list(scraped)[0].text, b'\xc3\x9c\xc3\x9c\xc3\x9c'.decode())
 
-    safe_scrape = mocked(Scraped)(['e'], silent=True)
-    ut.assert_doesnt_raise(lambda : set(safe_scrape), CouldNotOpenURL)
+        # Tests the behavior for an unavailable resource.
+        cant_scrape = mocked(Scraped)(['e'], silent=False, **kw)
+        ut.assert_raises(lambda : set(cant_scrape), CouldNotOpenURL)
 
-    scraped = mocked(Scraped)(['a', 'a', 'a'], revisit=True)
-    ut.assert_equal(list(scraped), [Response('a', 'aaa', 'a')] * 3)
+        safe_scrape = mocked(Scraped)(['e'], silent=True, **kw)
+        ut.assert_doesnt_raise(lambda : set(safe_scrape), CouldNotOpenURL)
 
-    scraped = mocked(Scraped)(['a', 'a', 'a'], revisit=False)
-    ut.assert_equal(list(scraped), [Response('a', 'aaa', 'a')])
+        # Tests the behavior for the <revisit> argument.
+        scraped = mocked(Scraped)(['a', 'a', 'a'], revisit=True, **kw)
+        ut.assert_equal(list(scraped), [Response('a', 'aaa', 'a')] * 3)
 
-    scraped = mocked(Scraped)([b'\xc3\x9c'.decode()], encoding='utf-8')
-    # The response text should be three uppercase Us with umlauts.
-    ut.assert_equal(list(scraped)[0].text, b'\xc3\x9c\xc3\x9c\xc3\x9c'.decode())
+        scraped = mocked(Scraped)(['a', 'a', 'a'], revisit=False, **kw)
+        ut.assert_equal(list(scraped), [Response('a', 'aaa', 'a')])
 
-    # The scraper class should be able to handle infinite generators; if not, this test will take forever!
-    @scraper(cls=mocked(Scraped), revisit=True)
-    def foo () :
-        while True :
-            for url in ['a', 'b'] :
-                yield url
+        # The scraper class should be able to handle infinite generators; if not, this test will take forever!
+        @scraper(cls=mocked(Scraped), revisit=True, **kw)
+        def foo () :
+            while True :
+                for url in ['a', 'b'] :
+                    yield url
 
-    for i, response in enumerate(foo()) :
-        # This shouldn't take too long to finish.
-        if i == 10 :
-            break
+        for i, response in enumerate(foo()) :
+            # This shouldn't take too long to finish.
+            if i == 10 :
+                break
 
 def __demo__ () :
-    ''' A demonstration of the scraper decorator. '''
+    ''' A demonstration of the scraper decorator, because part of this demonstration depends on the internet, it's
+        possible that this can throw exceptions. '''
 
-    @scraper(silent=True)
+    import itertools
+
+    @scraper
     def scraped () :
+        # This will throw exceptions if things go wrong.
+
         yield 'http://www.wikipedia.org'
         yield 'http://python.org'
         yield 'http://missingparenthesis.com/foobar'
 
-    for response in scraped() :
+    @scraper(silent=True)
+    def silent_scraped () :
+        # This won't throw exceptions, even if things go horribly wrong.
+
+        yield 'http://www.wikipedia.org'
+        yield 'http://python.org'
+        yield 'http://missingparenthesis.com/foobar'
+
+    for response in itertools.chain(scraped(), silent_scraped()) :
         print(repr(response)) # Notice how the URL has been switched out with a response.
 
 if __name__ == '__main__' :

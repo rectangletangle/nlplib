@@ -4,7 +4,8 @@
 
 from itertools import chain
 
-__all__ = ['represented_nonliterally', 'represented_literally', 'pretty_truncate', 'pretty_float', 'pretty_ellipsis']
+__all__ = ['represented_nonliterally', 'represented_literally', 'pretty_truncate', 'pretty_string', 'pretty_float',
+           'pretty_ellipsis']
 
 def _representation_args_and_kw (*args, **kw) :
     # <sorted> is used to make the keyword argument order deterministic.
@@ -34,15 +35,19 @@ def pretty_truncate (string, cutoff=100, tail='...') :
         # This happens if <cutoff> is None
         return string
 
-_PrettyFloat = type('_PrettyFloat', (float,), {'__repr__' : lambda self : '%0.4f' % self})
+# Built-in types with their <__repr__> methods overridden.
 
+_PrettyString = type('_PrettyString ', (str,), {'__repr__' : lambda self : str(self)})
+def pretty_string (value) :
+    return _PrettyString(value)
+
+_PrettyFloat = type('_PrettyFloat', (float,), {'__repr__' : lambda self : '%0.4f' % self})
 def pretty_float (value) :
     ''' Aesthetically pleasing floating point numbers. '''
 
     return _PrettyFloat(value)
 
 _PrettyEllipsis = type('_PrettyEllipsis', (), {'__repr__' : lambda self : '...'})
-
 def pretty_ellipsis () :
     return _PrettyEllipsis()
 

@@ -5,7 +5,7 @@ from nlplib.general.scrape import scraper
 
 __all__ = ['wikipedia_loop']
 
-@scraper(silent=True, chunk_size=1)
+@scraper(silent=True)
 def wikipedia_loop () :
     while True :
         yield RandomlyScrapedFromWikipedia.url

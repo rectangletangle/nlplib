@@ -1,24 +1,27 @@
 ''' Tools for dealing with multithreaded programs. '''
 
 
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+from nlplib.general.iterate import chunked
 
 __all__ = ['simultaneously']
 
-def simultaneously (functions, max_workers=None) :
-    ''' This runs the given functions concurrently. The functions shouldn't take any arguments, and any return values
-        will be ignored, for proper usage look at this module's demo function <__demo__>. '''
+def simultaneously (functions, max_workers=4) :
+    ''' This runs the given functions concurrently, the functions shouldn't take any arguments. The <max_workers>
+        argument denotes the amount of worker threads to use. '''
 
-    functions = list(functions)
-    max_workers = max_workers if max_workers is not None else len(functions)
+    if max_workers < 1 :
+        raise ValueError('<simultaneously> requires at least one worker thread.')
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor :
-        futures = [executor.submit(function) for function in functions]
 
-        for future in futures :
-            while future.running() :
-                pass
-            future.result()
+        futures = (executor.submit(function)
+                   for function in functions)
+
+        for chunk in chunked(futures, max_workers, trail=True) :
+            for future in as_completed(chunk) :
+                yield future.result()
 
 def __demo__ () :
     from urllib.request import urlopen
@@ -26,45 +29,42 @@ def __demo__ () :
     def get_html (url) :
         return urlopen(url).read(1024)
 
-    # Because the functions' return values are ignored, we append them to a list outside of the functions scope.
-    storage = []
+    for html in simultaneously([lambda : get_html('http://amazon.com'),
+                                lambda : get_html('http://ibm.com'),
+                                lambda : get_html('http://google.com'),
+                                lambda : get_html('http://python.org')]) :
 
-    simultaneously([lambda : storage.append(get_html('http://amazon.com')),
-                    lambda : storage.append(get_html('http://ibm.com')),
-                    lambda : storage.append(get_html('http://google.com')),
-                    lambda : storage.append(get_html('http://python.org'))])
-
-    for html in storage :
         print(html, end='\n\n')
 
 def __test__ (ut) :
     from time import sleep
 
-    storage = set()
-
     def foo () :
         sleep(0.1)
-        storage.add('foo')
+        return 'foo'
 
     def bar () :
         sleep(0.2)
-        storage.add('bar')
+        return 'bar'
 
     def baz () :
         sleep(0.3)
-        storage.add('baz')
+        return 'baz'
 
-    simultaneously([foo, bar, baz])
+    ut.assert_equal(set(simultaneously([foo, bar, baz])), {'foo', 'bar', 'baz'})
+    ut.assert_equal(set(simultaneously([foo, bar, baz], 1)), {'foo', 'bar', 'baz'})
+    ut.assert_equal(set(simultaneously([foo, bar, baz], 231)), {'foo', 'bar', 'baz'})
 
-    ut.assert_equal(storage, {'foo', 'bar', 'baz'})
+    ut.assert_raises(lambda : set(simultaneously([foo, bar, baz], 0)), ValueError)
+    ut.assert_raises(lambda : set(simultaneously([foo, bar, baz], -1)), ValueError)
 
-    class FooError (Exception) :
+    class SomeArbitraryException (Exception) :
         pass
 
-    def raise_foo () :
-        raise FooError
+    def raise_something () :
+        raise SomeArbitraryException
 
-    ut.assert_raises(lambda : simultaneously([raise_foo]), FooError)
+    ut.assert_raises(lambda : list(simultaneously([raise_something])), SomeArbitraryException)
 
 if __name__ == '__main__' :
     from nlplib.general.unittest import UnitTest

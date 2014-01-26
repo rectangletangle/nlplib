@@ -8,7 +8,6 @@ from nlplib.general.scrape import Scraped
 from nlplib.core.process.token import split
 from nlplib.core.model import Document
 from nlplib.general.iterate import flattened
-from nlplib.general.thread import simultaneously
 
 __all__ = ['RandomlyScrapedFromWikipedia', 'gather_documents']
 
@@ -41,7 +40,7 @@ def gather_documents (*args, **kw) :
         yield _make_document_from_response(response)
 
 def __demo__ () :
-    for document in gather_documents('inf', chunk_size=1) :
+    for document in gather_documents('inf') :
         print(document.url + '\n' + repr(document), end='\n\n')
 
 if __name__ == '__main__' :

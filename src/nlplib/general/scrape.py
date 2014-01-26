@@ -259,33 +259,7 @@ def __test__ (ut) :
         _test_when_unavailable(ut, mocked, **kw)
         _test_with_infinite_generator(mocked, **kw)
 
-def __demo__ () :
-    ''' A demonstration of the scraper decorator, because part of this demonstration depends on the internet, it's
-        possible that this can throw exceptions. '''
-
-    import itertools
-
-    @scraper
-    def scraped () :
-        # This will throw exceptions if things go wrong.
-
-        yield 'http://www.wikipedia.org'
-        yield 'http://python.org'
-        yield 'http://missingparenthesis.com/foobar'
-
-    @scraper(silent=True)
-    def silent_scraped () :
-        # This won't throw exceptions, even if things go horribly wrong.
-
-        yield 'http://www.wikipedia.org'
-        yield 'http://python.org'
-        yield 'http://missingparenthesis.com/foobar'
-
-    for response in itertools.chain(scraped(), silent_scraped()) :
-        print(repr(response)) # Notice how the URL has been switched out with a response.
-
 if __name__ == '__main__' :
     from nlplib.general.unittest import UnitTest
     __test__(UnitTest())
-    __demo__()
 

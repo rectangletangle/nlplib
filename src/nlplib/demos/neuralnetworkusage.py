@@ -1,12 +1,15 @@
+''' A demonstration of the neural network machine learning algorithm. '''
+
+
+import random
+
+import nlplib
+
+# Neural network connection weights are initialized pseudorandomly, this call makes the results deterministic.
+# This isn't necessary but, can be useful for testing.
+random.seed(0)
 
 if __name__ == '__main__' :
-
-    import random
-    # Neural network connection weights are initialized pseudorandomly, this call makes the results deterministic.
-    # This isn't necessary but, can be useful for testing.
-    random.seed(0)
-
-    import nlplib
 
     nn = nlplib.NeuralNetwork(['a', 'b', 'c'], 4, ['d', 'e', 'f'],
                               name='some neural network')

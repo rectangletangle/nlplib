@@ -1,10 +1,8 @@
-''' Infinitely yield random documents from Wikipedia. '''
+''' Infinitely yield random pages from Wikipedia. '''
 
 
 from nlplib.exterior.scrape.wikipedia import RandomlyScrapedFromWikipedia
-from nlplib.general.scrape import scraper
-
-__all__ = ['wikipedia_loop']
+from nlplib import scraper
 
 @scraper(silent=True)
 def wikipedia_loop () :

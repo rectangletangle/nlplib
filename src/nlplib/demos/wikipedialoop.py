@@ -1,3 +1,4 @@
+''' Infinitely yield random documents from Wikipedia. '''
 
 
 from nlplib.exterior.scrape.wikipedia import RandomlyScrapedFromWikipedia

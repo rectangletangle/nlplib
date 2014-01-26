@@ -59,7 +59,7 @@ class Scraped (Base) :
 
         encoding : The text encoding scheme. '''
 
-    def __init__ (self, urls, silent=False, max_workers=20, revisit=True, serial=False, user_agent='nlplib',
+    def __init__ (self, urls, silent=False, max_workers=10, revisit=True, serial=False, user_agent='nlplib',
                   encoding='utf-8') :
 
         self.urls = urls
@@ -107,7 +107,13 @@ class Scraped (Base) :
             false (the default), this will throw exceptions. '''
 
         if not self.silent :
-            raise CouldNotOpenURL(str(exc) + '\nhappened with the url : %s' % str(url))
+            raise CouldNotOpenURL("The URL <{}> couldn't be opened.".format(str(url))) from exc
+
+    def read (self, page) :
+        ''' Behavior for when a page is being read into memory, you probably only want to override this when dealing
+            with huge pages. '''
+
+        return page.read().decode(self.encoding)
 
     def _make_opener (self) :
         opener = build_opener()
@@ -117,9 +123,9 @@ class Scraped (Base) :
     def _scrape (self, opener, request_url) :
         try :
             with opener.open(request_url) as page :
-                response = Response(url=page.geturl(), text=page.read().decode(self.encoding), request_url=request_url)
+                response = Response(url=page.geturl(), text=self.read(page), request_url=request_url)
                 return self._could_open_url(response)
-        except (UnicodeError, URLError) as exc :
+        except (UnicodeError, MemoryError, URLError) as exc :
             return self.could_not_open_url(exc, request_url)
 
     def _could_open_url (self, response) :
@@ -151,18 +157,67 @@ def scraper (generator=None, *args, cls=Scraped, **kw) :
     else :
         return wrapper
 
+def _test_with_memory_errors (ut, mock, mocked, **kw) :
+
+    def memory_error_while_reading () :
+        raise MemoryError('This is huge!')
+
+    urls = {'a' : mock(geturl=lambda : 'a', read=memory_error_while_reading)}
+
+    ut.assert_raises(lambda : list(mocked(Scraped, urls=urls)(['a'], **kw)), CouldNotOpenURL)
+    ut.assert_doesnt_raise(lambda : list(mocked(Scraped, urls=urls)(['a'], silent=True, **kw)), CouldNotOpenURL)
+
+def _test_with_unicode (ut, mocked, **kw) :
+    ''' The response text should be three uppercase Us with umlauts. '''
+
+    scraped = mocked(Scraped)([b'\xc3\x9c'.decode()], encoding='utf-8', **kw)
+    ut.assert_equal(list(scraped)[0].text, b'\xc3\x9c\xc3\x9c\xc3\x9c'.decode())
+
+def _test_revisit (ut, mocked, **kw) :
+    ''' Tests the behavior for the <revisit> argument. '''
+
+    scraped = mocked(Scraped)(['a', 'a', 'a'], revisit=True, **kw)
+    ut.assert_equal(list(scraped), [Response('a', 'aaa', 'a')] * 3)
+
+    scraped = mocked(Scraped)(['a', 'a', 'a'], revisit=False, **kw)
+    ut.assert_equal(list(scraped), [Response('a', 'aaa', 'a')])
+
+def _test_when_unavailable (ut, mocked, **kw) :
+    ''' Tests the behavior when an unavailable resource is encountered. '''
+
+    cant_scrape = mocked(Scraped)(['e'], silent=False, **kw)
+    ut.assert_raises(lambda : set(cant_scrape), CouldNotOpenURL)
+
+    safe_scrape = mocked(Scraped)(['e'], silent=True, **kw)
+    ut.assert_doesnt_raise(lambda : set(safe_scrape), CouldNotOpenURL)
+
+def _test_with_infinite_generator (mocked, **kw) :
+    ''' The scraper class should be able to handle infinite generators; if not, this test will take forever! A real
+        unit test can't be done here, because it would basically involve solving the halting problem. '''
+
+    @scraper(cls=mocked(Scraped), revisit=True, **kw)
+    def foo () :
+        while True :
+            for url in ['a', 'b'] :
+                yield url
+
+        for i, response in enumerate(foo()) :
+            # This shouldn't take too long to finish.
+            if i == 10 :
+                break
+
 def __test__ (ut) :
     from nlplib.general.unittest import mock
 
     urls = {'a' : mock(geturl=lambda : 'a', read=lambda : b'aaa'),
             'b' : mock(geturl=lambda : 'b', read=lambda : b'bbb'),
-            'c' : mock(geturl=lambda : 'c', read=lambda : b'ccc'),
+            'c' : mock(geturl=lambda : 'cc', read=lambda : b'ccc'),
             'd' : mock(geturl=lambda : 'd', read=lambda : b'ddd'),
 
             b'\xc3\x9c'.decode() : mock(geturl=lambda : b'\xc3\x9c'.decode(),
                                         read=lambda : b'\xc3\x9c\xc3\x9c\xc3\x9c')}
 
-    def mocked (cls) :
+    def mocked (cls, urls=urls) :
         # A mockup is made, so that this test doesn't depend on external resources (the internet).
 
         def open_ (url) :
@@ -180,11 +235,15 @@ def __test__ (ut) :
 
         return Mocked
 
-    all_ = {Response('a', 'aaa', 'a'), Response('b', 'bbb', 'b'), Response('c', 'ccc', 'c'), Response('d', 'ddd', 'd')}
+    all_ = {Response('a', 'aaa', 'a'), Response('b', 'bbb', 'b'), Response('cc', 'ccc', 'c'),
+            Response('d', 'ddd', 'd')}
 
     for kw in [{'serial' : False}, {'serial' : True}] :
         scraped = mocked(Scraped)(['a', 'b', 'c'], **kw)
-        ut.assert_equal(set(scraped), {Response('a', 'aaa', 'a'), Response('b', 'bbb', 'b'), Response('c', 'ccc', 'c')})
+
+        ut.assert_equal(set(scraped),
+                        {Response('a', 'aaa', 'a'), Response('b', 'bbb', 'b'), Response('cc', 'ccc', 'c')})
+
         scraped.urls.append('d')
         ut.assert_equal(set(scraped), all_)
 
@@ -194,35 +253,11 @@ def __test__ (ut) :
         ut.assert_equal(set(gen_scraped), all_)
         ut.assert_equal(set(gen_scraped), set())
 
-        # The response text should be three uppercase Us with umlauts.
-        scraped = mocked(Scraped)([b'\xc3\x9c'.decode()], encoding='utf-8', **kw)
-        ut.assert_equal(list(scraped)[0].text, b'\xc3\x9c\xc3\x9c\xc3\x9c'.decode())
-
-        # Tests the behavior for an unavailable resource.
-        cant_scrape = mocked(Scraped)(['e'], silent=False, **kw)
-        ut.assert_raises(lambda : set(cant_scrape), CouldNotOpenURL)
-
-        safe_scrape = mocked(Scraped)(['e'], silent=True, **kw)
-        ut.assert_doesnt_raise(lambda : set(safe_scrape), CouldNotOpenURL)
-
-        # Tests the behavior for the <revisit> argument.
-        scraped = mocked(Scraped)(['a', 'a', 'a'], revisit=True, **kw)
-        ut.assert_equal(list(scraped), [Response('a', 'aaa', 'a')] * 3)
-
-        scraped = mocked(Scraped)(['a', 'a', 'a'], revisit=False, **kw)
-        ut.assert_equal(list(scraped), [Response('a', 'aaa', 'a')])
-
-        # The scraper class should be able to handle infinite generators; if not, this test will take forever!
-        @scraper(cls=mocked(Scraped), revisit=True, **kw)
-        def foo () :
-            while True :
-                for url in ['a', 'b'] :
-                    yield url
-
-        for i, response in enumerate(foo()) :
-            # This shouldn't take too long to finish.
-            if i == 10 :
-                break
+        _test_with_memory_errors(ut, mock, mocked, **kw)
+        _test_with_unicode(ut, mocked, **kw)
+        _test_revisit(ut, mocked, **kw)
+        _test_when_unavailable(ut, mocked, **kw)
+        _test_with_infinite_generator(mocked, **kw)
 
 def __demo__ () :
     ''' A demonstration of the scraper decorator, because part of this demonstration depends on the internet, it's

@@ -7,17 +7,19 @@ from nlplib.general.iterate import chunked
 
 __all__ = ['simultaneously']
 
-def simultaneously (functions, max_workers=4) :
-    ''' This runs the given functions concurrently, the functions shouldn't take any arguments. The <max_workers>
-        argument denotes the amount of worker threads to use. '''
+def simultaneously (function, iterable, max_workers=4) :
+    ''' This runs the given function over the iterable concurrently, in a similar fashion to the built-in <map>
+        function. The output's order is not guaranteed to correspond the order of the input iterable. Therefor the
+        output order should be treated as undefined. The <max_workers> argument denotes the amount of worker threads to
+        use. '''
 
     if max_workers < 1 :
         raise ValueError('<simultaneously> requires at least one worker thread.')
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor :
 
-        futures = (executor.submit(function)
-                   for function in functions)
+        futures = (executor.submit(function, item)
+                   for item in iterable)
 
         for chunk in chunked(futures, max_workers, trail=True) :
             for future in as_completed(chunk) :
@@ -26,45 +28,33 @@ def simultaneously (functions, max_workers=4) :
 def __demo__ () :
     from urllib.request import urlopen
 
-    def get_html (url) :
-        return urlopen(url).read(1024)
+    urls = ['http://amazon.com', 'http://ibm.com', 'http://google.com', 'http://python.org']
 
-    for html in simultaneously([lambda : get_html('http://amazon.com'),
-                                lambda : get_html('http://ibm.com'),
-                                lambda : get_html('http://google.com'),
-                                lambda : get_html('http://python.org')]) :
+    for html in simultaneously(lambda url : urlopen(url).read(1024), urls) :
 
         print(html, end='\n\n')
 
 def __test__ (ut) :
-    from time import sleep
 
-    def foo () :
-        sleep(0.1)
-        return 'foo'
+    def double (string) :
+        return string * 2
 
-    def bar () :
-        sleep(0.2)
-        return 'bar'
+    inputs = ['foo', 'bar', 'baz']
+    outputs = {'foofoo', 'barbar', 'bazbaz'}
 
-    def baz () :
-        sleep(0.3)
-        return 'baz'
+    for kw in [{}, {'max_workers' : 1}, {'max_workers' : 231}] :
+        ut.assert_equal(set(simultaneously(double, inputs, **kw)), outputs)
 
-    ut.assert_equal(set(simultaneously([foo, bar, baz])), {'foo', 'bar', 'baz'})
-    ut.assert_equal(set(simultaneously([foo, bar, baz], 1)), {'foo', 'bar', 'baz'})
-    ut.assert_equal(set(simultaneously([foo, bar, baz], 231)), {'foo', 'bar', 'baz'})
-
-    ut.assert_raises(lambda : set(simultaneously([foo, bar, baz], 0)), ValueError)
-    ut.assert_raises(lambda : set(simultaneously([foo, bar, baz], -1)), ValueError)
+    for workers in [0, -1, -13421] :
+        ut.assert_raises(lambda : set(simultaneously(double, inputs, max_workers=workers)), ValueError)
 
     class SomeArbitraryException (Exception) :
         pass
 
-    def raise_something () :
+    def raise_something (string) :
         raise SomeArbitraryException
 
-    ut.assert_raises(lambda : list(simultaneously([raise_something])), SomeArbitraryException)
+    ut.assert_raises(lambda : list(simultaneously(raise_something, inputs)), SomeArbitraryException)
 
 if __name__ == '__main__' :
     from nlplib.general.unittest import UnitTest

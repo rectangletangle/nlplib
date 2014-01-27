@@ -80,13 +80,10 @@ class Scraped (Base) :
 
         opener = self._make_opener()
 
-        scraping_functions = (lambda url=url : self._scrape(opener, url)
-                              for url in self.urls)
-
         if self.serial :
-            responses = (function() for function in scraping_functions)
+            responses = (self._scrape(opener, url) for url in self.urls)
         else :
-            responses = simultaneously(scraping_functions, max_workers=self.max_workers)
+            responses = simultaneously(lambda url : self._scrape(opener, url), self.urls, max_workers=self.max_workers)
 
         for response in responses :
             if response is not None :

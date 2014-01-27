@@ -1,4 +1,4 @@
-''' A demonstration of the web-scraper decorator. Because part of this demonstration depends on the internet, it's
+''' A demonstration of the web scraper decorator. Because part of this demonstration depends on the internet, it's
     possible that this can throw exceptions. '''
 
 
@@ -22,7 +22,7 @@ if __name__ == '__main__' :
         # The URL of the response, this can be different from the original input URL if you end up getting redirected.
         print(response.url)
 
-        # The first 100 characters of the string containing the response's text, typically HTML code.
+        # Prints the first 100 characters of the string containing the response's text, typically HTML code.
         print(str(response)[:100] + '...')
         print()
 
